@@ -485,6 +485,7 @@ class SwinTransformer(nn.Module):
         self.patch_norm = patch_norm
         self.num_features = int(embed_dim * 2 ** (self.num_layers - 1))
         self.mlp_ratio = mlp_ratio
+        self.is_Coord = is_Coord
         
         """ Base """
         if not is_SPT:
@@ -498,8 +499,9 @@ class SwinTransformer(nn.Module):
             self.img_resolution = (img_size//patch_size, img_size//patch_size)  
         
         # absolute position embedding
-        self.absolute_pos_embed = nn.Parameter(torch.zeros(1, self.img_resolution[0]**2, embed_dim))
-        trunc_normal_(self.absolute_pos_embed, std=.02)
+        if not is_Coord:
+            self.absolute_pos_embed = nn.Parameter(torch.zeros(1, self.img_resolution[0]**2, embed_dim))
+            trunc_normal_(self.absolute_pos_embed, std=.02)
 
         self.pos_drop = nn.Dropout(p=drop_rate)
 
@@ -542,8 +544,8 @@ class SwinTransformer(nn.Module):
         k = 0        
         
         x = self.patch_embed(x)   
-        
-        x = x + self.absolute_pos_embed
+        if not self.is_Coord:
+            x = x + self.absolute_pos_embed
         x = self.pos_drop(x)
         
         for i, layer in enumerate(self.layers):

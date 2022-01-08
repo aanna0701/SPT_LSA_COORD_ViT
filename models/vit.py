@@ -149,6 +149,7 @@ class ViT(nn.Module):
         self.patch_dim = channels * patch_height * patch_width
         self.dim = dim
         self.num_classes = num_classes
+        self.is_Coord = is_Coord
        
         if not is_SPT:
             self.to_patch_embedding = nn.Sequential(
@@ -158,8 +159,9 @@ class ViT(nn.Module):
             
         else:
             self.to_patch_embedding = ShiftedPatchTokenization(3, self.dim, patch_size, is_pe=True)
-         
-        self.pos_embedding = nn.Parameter(torch.randn(1, self.num_patches + 1, self.dim))
+        
+        if not is_Coord:
+            self.pos_embedding = nn.Parameter(torch.randn(1, self.num_patches + 1, self.dim))
             
         self.cls_token = nn.Parameter(torch.randn(1, 1, self.dim))
         self.dropout = nn.Dropout(emb_dropout)
@@ -183,7 +185,8 @@ class ViT(nn.Module):
         cls_tokens = repeat(self.cls_token, '() n d -> b n d', b = b)
       
         x = torch.cat((cls_tokens, x), dim=1)
-        x += self.pos_embedding[:, :(n + 1)]
+        if not self.is_Coord:
+            x += self.pos_embedding[:, :(n + 1)]
         x = self.dropout(x)
 
         x = self.transformer(x)      

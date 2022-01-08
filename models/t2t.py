@@ -247,7 +247,8 @@ class T2T_ViT(nn.Module):
         num_patches = self.tokens_to_token.num_patches
 
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
-        self.pos_embed = nn.Parameter(data=get_sinusoid_encoding(n_position=num_patches + 1, d_hid=embed_dim), requires_grad=False)
+        if not is_Coord:
+            self.pos_embed = nn.Parameter(data=get_sinusoid_encoding(n_position=num_patches + 1, d_hid=embed_dim), requires_grad=False)
         self.pos_drop = nn.Dropout(p=drop_rate)
         
 
@@ -291,7 +292,8 @@ class T2T_ViT(nn.Module):
 
         cls_tokens = self.cls_token.expand(B, -1, -1)
         x = torch.cat((cls_tokens, x), dim=1)
-        x = x + self.pos_embed
+        if not self.is_Coord:
+            x = x + self.pos_embed
         x = self.pos_drop(x)
 
         for blk in self.blocks:

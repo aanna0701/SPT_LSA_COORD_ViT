@@ -200,6 +200,7 @@ class PiT(nn.Module):
         super(PiT, self).__init__()
         heads = cast_tuple(heads, len(depth))
         self.num_classes = num_classes
+        self.is_Coord = is_Coord
 
         if not is_SPT:
             self.to_patch_embedding = nn.Sequential(
@@ -214,8 +215,8 @@ class PiT(nn.Module):
         output_size = img_size // patch_size
         num_patches = output_size ** 2   
         
-
-        self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
+        if not is_Coord:
+            self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.dropout = nn.Dropout(emb_dropout)
 
@@ -249,7 +250,8 @@ class PiT(nn.Module):
         b, n, _ = x.shape
         cls_tokens = repeat(self.cls_token, '() n d -> b n d', b = b)
         x = torch.cat((cls_tokens, x), dim=1)
-        x += self.pos_embedding
+        if not self.is_Coord:
+            x += self.pos_embedding
         x = self.dropout(x)
 
         for i, layer in enumerate(self.layers):  

@@ -241,7 +241,9 @@ class CaiT(nn.Module):
         patch_height, patch_width = pair(patch_size)
         num_patches = (image_height // patch_height) * (image_width // patch_width)
 
-        self.pos_embedding = nn.Parameter(torch.randn(1, num_patches, dim))
+        self.is_Coord = is_Coord
+        if not is_Coord:
+            self.pos_embedding = nn.Parameter(torch.randn(1, num_patches, dim))
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
 
         self.dropout = nn.Dropout(emb_dropout)
@@ -260,7 +262,8 @@ class CaiT(nn.Module):
         x = self.to_patch_embedding(img)
         b, n, _ = x.shape
 
-        x += self.pos_embedding[:, :n]
+        if not self.is_Coord:
+            x += self.pos_embedding[:, :n]
         x = self.dropout(x)
 
         x = self.patch_transformer(x)
