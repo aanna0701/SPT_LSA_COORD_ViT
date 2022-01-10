@@ -206,8 +206,7 @@ class PiT(nn.Module):
             self.to_patch_embedding = nn.Sequential(
                 nn.Conv2d(3, dim, patch_size, patch_size),
                 Rearrange('b c h w -> b (h w) c')
-            )
-            
+            )            
             
         else:
             self.to_patch_embedding = ShiftedPatchTokenization(3, dim, patch_size, is_pe=True)
