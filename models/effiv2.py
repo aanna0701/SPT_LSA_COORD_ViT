@@ -119,7 +119,7 @@ class MBConv(nn.Module):
 
 
 class EffNetV2(nn.Module):
-    def __init__(self, cfgs, num_classes=1000, width_mult=1.):
+    def __init__(self, cfgs, n_classes=1000, width_mult=1.):
         super(EffNetV2, self).__init__()
         self.cfgs = cfgs
 
@@ -138,7 +138,7 @@ class EffNetV2(nn.Module):
         output_channel = _make_divisible(1792 * width_mult, 8) if width_mult > 1.0 else 1792
         self.conv = conv_1x1_bn(input_channel, output_channel)
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.classifier = nn.Linear(output_channel, num_classes)
+        self.classifier = nn.Linear(output_channel, n_classes)
 
         self._initialize_weights()
 

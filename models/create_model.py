@@ -45,9 +45,9 @@ def create_model(img_size, n_classes, args):
                                 is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
         
     elif args.model =='regnet':
-        model = RegNetY_400MF()
+        model = RegNetY_400MF(n_classes)
         
     elif args.model =='effiv2':
-        model = effnetv2_s()
+        model = effnetv2_s(n_classes)
         
     return model
