@@ -3,6 +3,8 @@ from .cait import CaiT
 from .pit import PiT
 from .swin import SwinTransformer
 from .t2t import T2T_ViT
+from .regnet import RegNetY_400MF
+from .effiv2 import effnetv2_s
 
 def create_model(img_size, n_classes, args):
     if args.model == 'vit':
@@ -41,5 +43,11 @@ def create_model(img_size, n_classes, args):
         model = SwinTransformer(img_size=img_size, window_size=window_size, drop_path_rate=args.sd, 
                                 patch_size=patch_size, mlp_ratio=mlp_ratio, depths=depths, num_heads=num_heads, num_classes=n_classes, 
                                 is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
+        
+    elif args.model =='regnet':
+        model = RegNetY_400MF()
+        
+    elif args.model =='effiv2':
+        model = effnetv2_s()
         
     return model
