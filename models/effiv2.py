@@ -165,7 +165,7 @@ class EffNetV2(nn.Module):
                 m.bias.data.zero_()
 
 
-def effnetv2_s(**kwargs):
+def effnetv2_s(n_classes):
     """
     Constructs a EfficientNetV2-S model
     """
@@ -178,7 +178,7 @@ def effnetv2_s(**kwargs):
         [6, 160,  9, 1, 1],
         [6, 256, 15, 2, 1],
     ]
-    return EffNetV2(cfgs, **kwargs)
+    return EffNetV2(cfgs, n_classes=n_classes)
 
 
 def effnetv2_m(**kwargs):
