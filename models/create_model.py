@@ -3,8 +3,8 @@ from .cait import CaiT
 from .pit import PiT
 from .swin import SwinTransformer
 from .t2t import T2T_ViT
-from .regnet import RegNetY_400MF
-from .effiv2 import effnetv2_s
+from .regnet import *
+from .effiv2 import *
 
 def create_model(img_size, n_classes, args):
     if args.model == 'vit':
@@ -48,6 +48,13 @@ def create_model(img_size, n_classes, args):
         model = RegNetY_400MF(n_classes)
         
     elif args.model =='effiv2':
+        
         model = effnetv2_s(n_classes)
+        
+    elif args.model =='regnet_200mf':
+        model = RegNetY_200MF(n_classes)
+        
+    elif args.model =='effiv2_m':
+        model = effnetv2_m(n_classes)
         
     return model

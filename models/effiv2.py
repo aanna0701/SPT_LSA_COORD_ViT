@@ -181,7 +181,7 @@ def effnetv2_s(n_classes):
     return EffNetV2(cfgs, n_classes=n_classes)
 
 
-def effnetv2_m(**kwargs):
+def effnetv2_m(n_classes):
     """
     Constructs a EfficientNetV2-M model
     """
@@ -195,7 +195,7 @@ def effnetv2_m(**kwargs):
         [6, 304, 18, 2, 1],
         [6, 512,  5, 1, 1],
     ]
-    return EffNetV2(cfgs, **kwargs)
+    return EffNetV2(cfgs, n_classes=n_classes)
 
 
 def effnetv2_l(**kwargs):
