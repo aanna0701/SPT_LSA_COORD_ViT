@@ -52,7 +52,7 @@ def create_model(img_size, n_classes, args):
         model = effnetv2_s(n_classes)
         
     elif args.model =='regnet_200mf':
-        model = RegNetY_200MF(n_classes)
+        model = RegNetX_200MF(n_classes)
         
     elif args.model =='effiv2_m':
         model = effnetv2_m(n_classes)
