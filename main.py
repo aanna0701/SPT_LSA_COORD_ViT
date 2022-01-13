@@ -26,7 +26,7 @@ import warnings
 warnings.filterwarnings("ignore", category=Warning)
 
 best_acc1 = 0
-MODELS = ['vit', 'swin', 'pit', 'cait', 't2t', 'effiv2', 'regnet', 'effiv2_m', 'regnet_200mf']
+MODELS = ['vit', 'swin_t','swin_s','swin_m', 'pit', 'cait', 't2t', 'effiv2', 'regnet', 'effiv2_m', 'regnet_200mf']
 
 
 def init_parser():

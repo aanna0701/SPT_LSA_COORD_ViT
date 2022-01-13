@@ -33,14 +33,39 @@ def create_model(img_size, n_classes, args):
         model = T2T_ViT(img_size=img_size, num_classes=n_classes, drop_path_rate=args.sd, 
                         is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
         
-    elif args.model =='swin':
+    elif args.model =='swin_t':
         depths = [2, 6, 4]
         num_heads = [3, 6, 12]
         mlp_ratio = 2
         window_size = 4
+        embed_dim = 96
         patch_size = 2 if img_size == 32 else 4
             
-        model = SwinTransformer(img_size=img_size, window_size=window_size, drop_path_rate=args.sd, 
+        model = SwinTransformer(img_size=img_size, window_size=window_size, drop_path_rate=args.sd, embed_dim=embed_dim,
+                                patch_size=patch_size, mlp_ratio=mlp_ratio, depths=depths, num_heads=num_heads, num_classes=n_classes, 
+                                is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
+        
+    elif args.model =='swin_s':
+        depths = [2, 18, 4]
+        num_heads = [3, 6, 12]
+        mlp_ratio = 2
+        window_size = 4
+        embed_dim = 96
+        patch_size = 2 if img_size == 32 else 4
+            
+        model = SwinTransformer(img_size=img_size, window_size=window_size, drop_path_rate=args.sd, embed_dim=embed_dim,
+                                patch_size=patch_size, mlp_ratio=mlp_ratio, depths=depths, num_heads=num_heads, num_classes=n_classes, 
+                                is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
+        
+    elif args.model =='swin_m':
+        depths = [2, 18, 4]
+        num_heads = [3, 6, 12]
+        mlp_ratio = 2
+        window_size = 4
+        embed_dim = 128
+        patch_size = 2 if img_size == 32 else 4
+            
+        model = SwinTransformer(img_size=img_size, window_size=window_size, drop_path_rate=args.sd, embed_dim=embed_dim,
                                 patch_size=patch_size, mlp_ratio=mlp_ratio, depths=depths, num_heads=num_heads, num_classes=n_classes, 
                                 is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
         
