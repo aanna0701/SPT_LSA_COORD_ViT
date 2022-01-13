@@ -59,7 +59,7 @@ def create_model(img_size, n_classes, args):
         
     elif args.model =='swin_m':
         depths = [2, 18, 4]
-        num_heads = [3, 6, 12]
+        num_heads = [4, 8, 16]
         mlp_ratio = 2
         window_size = 4
         embed_dim = 128
