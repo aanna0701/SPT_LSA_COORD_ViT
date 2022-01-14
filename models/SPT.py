@@ -4,7 +4,7 @@ from einops import rearrange
 from einops.layers.torch import Rearrange
 import math
 from .Coord import CoordLinear
- 
+
 class ShiftedPatchTokenization(nn.Module):
     def __init__(self, in_dim, dim, merging_size=2, exist_class_t=False, is_pe=False, is_Coord=False):
         super().__init__()
