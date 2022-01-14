@@ -13,6 +13,16 @@ def create_model(img_size, n_classes, args):
                     mlp_dim_ratio=2, depth=9, heads=12, dim_head=192//12,
                     stochastic_depth=args.sd, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
 
+    elif args.model == 'cait_xxs24':       
+        patch_size = 4 if img_size == 32 else 8
+        model = CaiT(img_size=img_size, patch_size = patch_size, num_classes=n_classes, stochastic_depth=args.sd, 
+                     is_LSA=args.is_LSA, is_SPT=args.is_SPT, is_Coord=args.is_Coord)
+
+    elif args.model == 'cait_xs24':       
+        patch_size = 4 if img_size == 32 else 8
+        model = CaiT(img_size=img_size, patch_size = patch_size, num_classes=n_classes, stochastic_depth=args.sd, dim=288,
+                     is_LSA=args.is_LSA, is_SPT=args.is_SPT, is_Coord=args.is_Coord)
+
     elif args.model == 'cait':       
         patch_size = 4 if img_size == 32 else 8
         model = CaiT(img_size=img_size, patch_size = patch_size, num_classes=n_classes, stochastic_depth=args.sd, 
