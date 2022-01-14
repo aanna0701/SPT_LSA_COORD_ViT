@@ -23,9 +23,9 @@ def create_model(img_size, n_classes, args):
         model = CaiT(img_size=img_size, patch_size = patch_size, num_classes=n_classes, stochastic_depth=args.sd, dim=288,
                      is_LSA=args.is_LSA, is_SPT=args.is_SPT, is_Coord=args.is_Coord)
 
-    elif args.model == 'cait':       
+    elif args.model == 'cait_xxs36':       
         patch_size = 4 if img_size == 32 else 8
-        model = CaiT(img_size=img_size, patch_size = patch_size, num_classes=n_classes, stochastic_depth=args.sd, 
+        model = CaiT(img_size=img_size, patch_size = patch_size, num_classes=n_classes, stochastic_depth=args.sd, depth=36,
                      is_LSA=args.is_LSA, is_SPT=args.is_SPT, is_Coord=args.is_Coord)
         
     elif args.model == 'pit':
