@@ -154,11 +154,11 @@ class ViT(nn.Module):
         if not is_SPT:
             self.to_patch_embedding = nn.Sequential(
                 Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = patch_height, p2 = patch_width),
-                nn.Linear(self.patch_dim, self.dim) if not is_Coord else CoordLinear(self.patch_dim, self.dim)
+                nn.Linear(self.patch_dim, self.dim)
             )
             
         else:
-            self.to_patch_embedding = ShiftedPatchTokenization(3, self.dim, patch_size, is_pe=True)
+            self.to_patch_embedding = ShiftedPatchTokenization(3, self.dim, patch_size, is_pe=True, is_Coord=is_Coord)
         
         if not is_Coord:
             self.pos_embedding = nn.Parameter(torch.randn(1, self.num_patches + 1, self.dim))
