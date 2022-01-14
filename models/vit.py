@@ -128,7 +128,7 @@ class Transformer(nn.Module):
         for i in range(depth):
             self.layers.append(nn.ModuleList([
                 PreNorm(num_patches, dim, Attention(dim, num_patches, heads = heads, dim_head = dim_head, dropout = dropout, is_LSA=is_LSA, is_Coord=is_Coord)),
-                PreNorm(num_patches, dim, FeedForward(dim, num_patches, dim * mlp_dim_ratio, dropout = dropout, is_Coord=is_Coord))
+                PreNorm(num_patches, dim, FeedForward(dim, num_patches, dim * mlp_dim_ratio, dropout = dropout, is_Coord=is_Coord if not i == depth-1 else False))
             ]))            
         self.drop_path = DropPath(stochastic_depth) if stochastic_depth > 0 else nn.Identity()
     
@@ -154,7 +154,7 @@ class ViT(nn.Module):
         if not is_SPT:
             self.to_patch_embedding = nn.Sequential(
                 Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = patch_height, p2 = patch_width),
-                nn.Linear(self.patch_dim, self.dim)
+                nn.Linear(self.patch_dim, self.dim) if not is_Coord else CoordLinear(self.patch_dim, self.dim)
             )
             
         else:
