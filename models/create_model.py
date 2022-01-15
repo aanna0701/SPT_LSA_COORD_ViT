@@ -89,6 +89,9 @@ def create_model(img_size, n_classes, args):
     elif args.model =='regnet_200mf':
         model = RegNetX_200MF(n_classes)
         
+    elif args.model =='regnet_400mf':
+        model = RegNetX_400MF(n_classes)
+        
     elif args.model =='effiv2_m':
         model = effnetv2_m(n_classes)
         
