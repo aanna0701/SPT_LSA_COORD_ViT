@@ -200,7 +200,7 @@ class T2T_module(nn.Module):
             
         self.spt = PatchShifting(2)
         self.norm = nn.LayerNorm(token_dim * 3 * 3)
-        self.project = nn.Linear(token_dim * 3 * 3, embed_dim)
+        self.project = nn.Linear(token_dim * 3 * 3, embed_dim) if not is_Coord else CoordLinear(token_dim * 3 * 3, embed_dim, exist_cls_token=False)
           # there are 3 sfot split, stride are 4,2,2 seperately
 
     def forward(self, x):

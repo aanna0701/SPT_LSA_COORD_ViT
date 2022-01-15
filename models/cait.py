@@ -187,7 +187,7 @@ class Transformer(nn.Module):
         for ind in range(depth):
             self.layers.append(nn.ModuleList([
                 LayerScale(dim, PreNorm(dim, Attention(dim, num_patches, heads = heads, dim_head = dim_head, dropout = dropout, if_patch_attn=if_patch_attn, is_LSA=is_LSA, is_Coord=is_Coord)), depth = ind + 1),
-                LayerScale(dim, PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout, is_Coord=is_Coord if not ind == depth-1 else False)), depth = ind + 1)
+                LayerScale(dim, PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout, is_Coord=is_Coord)), depth = ind + 1)
             ]))
         self.drop_path = DropPath(stochastic_depth) if stochastic_depth > 0 else nn.Identity()
     def forward(self, x, context = None):
@@ -233,7 +233,7 @@ class CaiT(nn.Module):
         
         else:
             self.to_patch_embedding = nn.Sequential(
-                ShiftedPatchTokenization(3, dim, patch_size, is_pe=True),
+                ShiftedPatchTokenization(3, dim, patch_size, is_pe=True, is_Coord=is_Coord),
             )
         
         

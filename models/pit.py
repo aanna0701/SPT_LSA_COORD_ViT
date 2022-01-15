@@ -127,7 +127,7 @@ class Transformer(nn.Module):
         for i in range(depth):
             self.layers.append(nn.ModuleList([
                 PreNorm(num_patches, dim, Attention(dim, num_patches, heads = heads, dim_head = dim_head, dropout = dropout, is_LSA=is_LSA, is_Coord=is_Coord)),
-                PreNorm(num_patches, dim, FeedForward(num_patches, dim, mlp_dim_ratio, dropout = dropout, is_Coord=is_Coord))
+                PreNorm(num_patches, dim, FeedForward(num_patches, dim, mlp_dim_ratio, dropout = dropout, is_Coord=is_Coord if not i == depth-1 else False))
             ]))            
             
         self.drop_path = DropPath(stochastic_depth) if stochastic_depth > 0 else nn.Identity()
@@ -209,7 +209,7 @@ class PiT(nn.Module):
             )            
             
         else:
-            self.to_patch_embedding = ShiftedPatchTokenization(3, dim, patch_size, is_pe=True)
+            self.to_patch_embedding = ShiftedPatchTokenization(3, dim, patch_size, is_pe=True, is_Coord=is_Coord)
             
         output_size = img_size // patch_size
         num_patches = output_size ** 2   
@@ -232,7 +232,7 @@ class PiT(nn.Module):
                     self.layers.append(Pool(output_size, dim))
                     output_size = conv_output_size(output_size, 3, 2, 1)
                 else:
-                    self.layers.append(ShiftedPatchTokenization(dim, dim*2, 2, exist_class_t=True)) 
+                    self.layers.append(ShiftedPatchTokenization(dim, dim*2, 2, exist_class_t=True, is_Coord=is_Coord)) 
                     output_size //= 2
                 
                 dim *= 2
