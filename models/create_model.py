@@ -67,12 +67,25 @@ def create_model(img_size, n_classes, args):
                                 patch_size=patch_size, mlp_ratio=mlp_ratio, depths=depths, num_heads=num_heads, num_classes=n_classes, 
                                 is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
         
-    elif args.model =='swin_m':
+    elif args.model =='swin_b':
         depths = [2, 18, 4]
         num_heads = [4, 8, 16]
         mlp_ratio = 2
         window_size = 4
         embed_dim = 128
+        patch_size = 2 if img_size == 32 else 4
+            
+        model = SwinTransformer(img_size=img_size, window_size=window_size, drop_path_rate=args.sd, embed_dim=embed_dim,
+                                patch_size=patch_size, mlp_ratio=mlp_ratio, depths=depths, num_heads=num_heads, num_classes=n_classes, 
+                                is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
+        
+        
+    elif args.model =='swin_l':
+        depths = [2, 18, 4]
+        num_heads = [6, 12, 24]
+        mlp_ratio = 2
+        window_size = 4
+        embed_dim = 192
         patch_size = 2 if img_size == 32 else 4
             
         model = SwinTransformer(img_size=img_size, window_size=window_size, drop_path_rate=args.sd, embed_dim=embed_dim,
