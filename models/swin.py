@@ -355,7 +355,7 @@ class BasicLayer(nn.Module):
     def __init__(self, dim, input_resolution, depth, num_heads, window_size, 
                  mlp_ratio=4., qkv_bias=True, qk_scale=None, drop=0., attn_drop=0.,
                  drop_path=0., norm_layer=nn.LayerNorm, downsample=False, use_checkpoint=False,
-                 is_LSA=False, is_SPT=False, is_Coord=False):
+                 is_LSA=False, is_SPT=False, is_Coord=False, is_last=False):
 
         super().__init__()
         self.dim = dim
@@ -373,7 +373,7 @@ class BasicLayer(nn.Module):
                                  qkv_bias=qkv_bias, qk_scale=qk_scale,
                                  drop=drop, attn_drop=attn_drop,
                                  drop_path=drop_path[i] if isinstance(drop_path, list) else drop_path,
-                                 norm_layer=norm_layer, is_LSA=is_LSA, is_Coord=is_Coord, is_last=True if i == depth-1 else False)
+                                 norm_layer=norm_layer, is_LSA=is_LSA, is_Coord=is_Coord, is_last=True if (i == depth-1 and is_last) else False)
             for i in range(depth)])
 
         # patch merging layer
@@ -526,7 +526,8 @@ class SwinTransformer(nn.Module):
                                drop_path=dpr[sum(depths[:i_layer]):sum(depths[:i_layer + 1])],
                                norm_layer=norm_layer, is_LSA=is_LSA, is_SPT=is_SPT, is_Coord=is_Coord,
                                downsample=True if (i_layer < self.num_layers - 1) else False,
-                               use_checkpoint=use_checkpoint)
+                               use_checkpoint=use_checkpoint,
+                               is_last = False if not i_layer == self.num_layers-1 else True)
             self.layers.append(layer)
             
         self.img_resolution = [self.img_resolution[0] // (2**(self.num_layers-1)), 

@@ -120,14 +120,14 @@ class Attention(nn.Module):
     
 
 class Transformer(nn.Module):
-    def __init__(self, dim, num_patches, depth, heads, dim_head, mlp_dim_ratio, dropout = 0., stochastic_depth=0., is_LSA=False, is_Coord=False):
+    def __init__(self, dim, num_patches, depth, heads, dim_head, mlp_dim_ratio, dropout = 0., stochastic_depth=0., is_LSA=False, is_Coord=False, is_last=False):
         super().__init__()
         self.layers = nn.ModuleList([])
         num_patches = num_patches**2 + 1
         for i in range(depth):
             self.layers.append(nn.ModuleList([
                 PreNorm(num_patches, dim, Attention(dim, num_patches, heads = heads, dim_head = dim_head, dropout = dropout, is_LSA=is_LSA, is_Coord=is_Coord)),
-                PreNorm(num_patches, dim, FeedForward(num_patches, dim, mlp_dim_ratio, dropout = dropout, is_Coord=is_Coord if not i == depth-1 else False))
+                PreNorm(num_patches, dim, FeedForward(num_patches, dim, mlp_dim_ratio, dropout = dropout, is_Coord=is_Coord if not (i == depth-1 and is_last) else False))
             ]))            
             
         self.drop_path = DropPath(stochastic_depth) if stochastic_depth > 0 else nn.Identity()
@@ -225,7 +225,7 @@ class PiT(nn.Module):
             not_last = ind < (len(depth) - 1)
             
             self.layers.append(Transformer(dim, output_size, layer_depth, layer_heads,
-                                           dim_head, dim*mlp_dim_ratio, dropout, stochastic_depth, is_LSA=is_LSA, is_Coord=is_Coord))
+                                           dim_head, dim*mlp_dim_ratio, dropout, stochastic_depth, is_LSA=is_LSA, is_Coord=is_Coord, is_last = True if ind == len(depth)-1 else False))
 
             if not_last:
                 if not is_SPT:
