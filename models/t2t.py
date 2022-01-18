@@ -329,6 +329,8 @@ class T2T_ViT(nn.Module):
         self.tokens_to_token = T2T_module(
                 img_size=img_size, in_chans=in_chans, embed_dim=embed_dim, token_dim=token_dim, is_SPT=is_SPT, is_LSA=is_LSA, is_Coord=is_Coord)
         num_patches = self.tokens_to_token.num_patches
+        self.num_patches = num_patches
+        self.num_classes = num_classes
 
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
         if not is_Coord:
