@@ -243,7 +243,7 @@ def main(args):
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scheduler = build_scheduler(args, optimizer, len(train_loader))
     
-    # summary(model, (3, data_info['img_size'], data_info['img_size']))
+    summary(model, (3, data_info['img_size'], data_info['img_size']))
     
     print()
     print("Beginning training")

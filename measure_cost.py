@@ -9,6 +9,7 @@ import sys
 from functools import partial
 from models.create_model import create_model
 
+from torchsummary import summary
 def get_model_complexity_info(model, input_res,
                               print_per_layer_stat=True,
                               as_strings=True,
@@ -566,6 +567,7 @@ def main(args):
     GPU = args.gpu
     
     model = create_model(img_size, n_classes, args)
+    
 
     if args.type == 'latency': 
         # Throughput
@@ -574,6 +576,7 @@ def main(args):
         repetitions=1000
         warmup = 200
         model.cuda(GPU)
+        summary(model, (3, img_size, img_size))
         total_time = 0
         with torch.no_grad():
             for rep in range(repetitions + warmup):
