@@ -186,16 +186,17 @@ class Attention(nn.Module):
 
 class Token_transformer(nn.Module):
 
-    def __init__(self, dim, in_dim, num_heads, mlp_ratio=1., qkv_bias=False, qk_scale=None, drop=0., attn_drop=0.,
+    def __init__(self, num_tokens, dim, in_dim, num_heads, mlp_ratio=1., qkv_bias=False, qk_scale=None, drop=0., attn_drop=0.,
                  drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, num_patches=0, is_LSA=False, is_Coord=False):
         super().__init__()
+        self.num_tokens = num_tokens
         self.norm1 = norm_layer(dim)
         self.attn = Attention(
             dim, in_dim=in_dim, num_heads=num_heads, qkv_bias=qkv_bias, qk_scale=qk_scale, attn_drop=attn_drop, proj_drop=drop,
             num_patches=num_patches, is_LSA=is_LSA, exist_cls_token=False, is_Coord=is_Coord)
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
         self.norm2 = norm_layer(in_dim)
-        self.mlp = Mlp(in_features=in_dim, hidden_features=int(in_dim*mlp_ratio), out_features=in_dim, act_layer=act_layer, drop=drop, exist_cls_token=False, is_Coord=is_Coord)
+        self.mlp = Mlp(num_tokens=num_tokens, in_features=in_dim, hidden_features=int(in_dim*mlp_ratio), out_features=in_dim, act_layer=act_layer, drop=drop, exist_cls_token=False, is_Coord=is_Coord)
 
     def forward(self, x):
         x = self.attn(self.norm1(x))
@@ -253,9 +254,9 @@ class T2T_module(nn.Module):
             self.soft_split2 = nn.Unfold(kernel_size=(3, 3), stride=(2, 2), padding=(1, 1))
             
             self.num_patches = (img_size // (2)) * (img_size // (2))
-            self.attention1 = Token_transformer(dim=in_chans * 3 * 3, in_dim=token_dim, num_heads=1, mlp_ratio=1.0, num_patches=self.num_patches, is_LSA=is_LSA, is_Coord=is_Coord)
+            self.attention1 = Token_transformer(self.num_patches, dim=in_chans * 3 * 3, in_dim=token_dim, num_heads=1, mlp_ratio=1.0, num_patches=self.num_patches, is_LSA=is_LSA, is_Coord=is_Coord)
             self.num_patches = (img_size // (2 * 2)) * (img_size // (2 * 2))
-            self.attention2 = Token_transformer(dim=token_dim * 3 * 3, in_dim=token_dim, num_heads=1, mlp_ratio=1.0, num_patches=self.num_patches, is_LSA=is_LSA, is_Coord=is_Coord)            
+            self.attention2 = Token_transformer(self.num_patches, dim=token_dim * 3 * 3, in_dim=token_dim, num_heads=1, mlp_ratio=1.0, num_patches=self.num_patches, is_LSA=is_LSA, is_Coord=is_Coord)            
             self.num_patches = (img_size // (2 * 2 * 2)) * (img_size // (2 * 2 * 2))
 
         else:
@@ -263,7 +264,7 @@ class T2T_module(nn.Module):
             self.soft_split1 = nn.Unfold(kernel_size=(3, 3), stride=(2, 2), padding=(1, 1))
             
             self.num_patches = (img_size // (2)) * (img_size // (2))
-            self.attention1 = Token_transformer(dim=in_chans * 3 * 3, in_dim=token_dim, num_heads=1, mlp_ratio=1.0, num_patches=self.num_patches, is_LSA=is_LSA, is_Coord=is_Coord)
+            self.attention1 = Token_transformer(self.num_patches, dim=in_chans * 3 * 3, in_dim=token_dim, num_heads=1, mlp_ratio=1.0, num_patches=self.num_patches, is_LSA=is_LSA, is_Coord=is_Coord)
             self.num_patches = (img_size // (2 * 2)) * (img_size // (2 * 2))
             self.attention2 = None    
             
