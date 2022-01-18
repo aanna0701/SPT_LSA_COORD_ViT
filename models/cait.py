@@ -323,7 +323,8 @@ class CaiT(nn.Module):
         image_height, image_width = pair(img_size)
         patch_height, patch_width = pair(patch_size)
         num_patches = (image_height // patch_height) * (image_width // patch_width)
-
+        self.dim = dim
+        self.num_classes = num_classes
         self.is_SPT = is_SPT
         self.is_Coord = is_Coord
         if not is_Coord:
