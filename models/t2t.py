@@ -173,15 +173,14 @@ class Attention(nn.Module):
         
         else:
             if not self.is_Coord:
-                flops += self.dim * self.in_dim 
-                flops += self.dim * self.in_dim * 2 * (self.num_patches+1)
+                flops += self.dim * self.in_dim * 3 * (self.num_patches+1)
             else:
                 flops += self.dim * self.in_dim 
-                flops += (self.dim+2) * self.in_dim * 2 * (self.num_patches+1)
+                flops += (self.dim+2) * self.in_dim * 2 * self.num_patches
                 
-            flops += self.in_dim * self.num_patches
-            flops += self.in_dim * self.num_patches
-            flops += self.in_dim * self.dim      
+            flops += self.in_dim * (self.num_patches**2)
+            flops += self.in_dim * (self.num_patches**2)
+            flops += self.in_dim * self.dim * (self.num_patches+1)     
         
         return flops
 
