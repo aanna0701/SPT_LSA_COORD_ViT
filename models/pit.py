@@ -268,6 +268,8 @@ class PiT(nn.Module):
         self.dim = dim
         self.num_classes = num_classes
         
+        addcoords = None
+        
         if not is_Coord:
             self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
         else:

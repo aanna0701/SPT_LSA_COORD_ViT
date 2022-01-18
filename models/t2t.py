@@ -338,7 +338,7 @@ class T2T_ViT(nn.Module):
         num_patches = self.tokens_to_token.num_patches
         self.num_patches = num_patches
         self.num_classes = num_classes
-
+        addcoords = None
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
         if not is_Coord:
             self.pos_embed = nn.Parameter(data=get_sinusoid_encoding(n_position=num_patches + 1, d_hid=embed_dim), requires_grad=False)

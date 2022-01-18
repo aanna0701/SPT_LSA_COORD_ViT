@@ -534,7 +534,7 @@ class SwinTransformer(nn.Module):
         self.num_features = int(embed_dim * 2 ** (self.num_layers - 1))
         self.mlp_ratio = mlp_ratio
         self.is_Coord = is_Coord
-        
+        addcoords = None
         # absolute position embedding
         if not is_Coord:
             self.absolute_pos_embed = nn.Parameter(torch.zeros(1, self.img_resolution[0]**2, embed_dim))

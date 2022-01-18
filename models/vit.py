@@ -188,7 +188,7 @@ class ViT(nn.Module):
         self.dim = dim
         self.num_classes = num_classes
         self.is_Coord = is_Coord
-        
+        addcoords = None
         if not is_Coord:
             self.pos_embedding = nn.Parameter(torch.randn(1, self.num_patches + 1, self.dim))
         else:

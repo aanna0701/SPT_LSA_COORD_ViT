@@ -333,7 +333,7 @@ class CaiT(nn.Module):
         self.num_classes = num_classes
         self.is_SPT = is_SPT
         self.is_Coord = is_Coord
-            
+        addcoords = None  
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
 
         self.dropout = nn.Dropout(emb_dropout)
