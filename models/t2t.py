@@ -55,12 +55,12 @@ class Mlp(nn.Module):
             flops += self.in_features * self.hidden_features
             flops += self.hidden_features * self.out_features
         
-        if self.is_coord:
-            flops += (self.dim+2) * self.hidden_dim * self.num_tokens
-            flops += self.dim * (self.hidden_dim+2) * self.num_tokens
+        if self.is_Coord:
+            flops += (self.in_features+2) * self.hidden_features * self.num_tokens
+            flops += self.out_features * (self.hidden_features+2) * self.num_tokens
         else:
-            flops += self.dim * self.hidden_dim * self.num_tokens
-            flops += self.dim * self.hidden_dim * self.num_tokens
+            flops += self.in_features * self.hidden_features * self.num_tokens
+            flops += self.out_features * self.hidden_features * self.num_tokens
             
         return flops
     
