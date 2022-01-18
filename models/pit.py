@@ -263,6 +263,9 @@ class PiT(nn.Module):
         self.is_Coord = is_Coord
         output_size = img_size // patch_size
         num_patches = output_size ** 2  
+        self.is_SPT = is_SPT
+        self.dim = dim
+        self.num_classes = num_classes
 
         if not is_SPT:
             self.to_patch_embedding = nn.Sequential(
