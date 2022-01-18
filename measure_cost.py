@@ -568,6 +568,12 @@ def main(args):
     
     model = create_model(img_size, n_classes, args)
     
+    if args.LSA:
+        args.model += '-LSA'
+    if args.SPT:
+        args.model += '-SPT'
+    if args.Coord:
+        args.model += '-SPT'
 
     if args.type == 'latency': 
         # Throughput
