@@ -107,12 +107,13 @@ class PreNorm(nn.Module):
         return flops
 
 class FeedForward(nn.Module):
-    def __init__(self, dim, hidden_dim, dropout = 0., is_Coord=False, if_patch_attn=True):
+    def __init__(self, num_tokens, dim, hidden_dim, dropout = 0., is_Coord=False, if_patch_attn=True):
         super().__init__()
         self.is_Coord = is_Coord
         self.if_patch_attn = if_patch_attn
         self.dim = dim
         self.hidden_dim = hidden_dim
+        self.num_tokens = num_tokens
         
         if not if_patch_attn:
             self.net = nn.Sequential(
@@ -261,7 +262,7 @@ class Transformer(nn.Module):
         for ind in range(depth):
             self.layers.append(nn.ModuleList([
                 LayerScale(dim, PreNorm(num_patches, dim, Attention(dim, num_patches, heads = heads, dim_head = dim_head, dropout = dropout, if_patch_attn=if_patch_attn, is_LSA=is_LSA, is_Coord=is_Coord)), depth = ind + 1),
-                LayerScale(dim, PreNorm(num_patches, dim, FeedForward(dim, mlp_dim, dropout = dropout, is_Coord=is_Coord, if_patch_attn=if_patch_attn)), depth = ind + 1)
+                LayerScale(dim, PreNorm(num_patches, dim, FeedForward(num_patches, dim, mlp_dim, dropout = dropout, is_Coord=is_Coord, if_patch_attn=if_patch_attn)), depth = ind + 1)
             ]))
         self.drop_path = DropPath(stochastic_depth) if stochastic_depth > 0 else nn.Identity()
     
