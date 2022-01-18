@@ -89,10 +89,13 @@ class LayerScale(nn.Module):
         return flops
 
 class PreNorm(nn.Module):
-    def __init__(self, dim, fn):
+    def __init__(self, num_tokens, dim, fn):
         super().__init__()
         self.norm = nn.LayerNorm(dim)
         self.fn = fn
+        self.dim = dim
+        self.num_tokens = num_tokens
+        
     def forward(self, x, **kwargs):
         return self.fn(self.norm(x), **kwargs)
     def flops(self):
@@ -255,8 +258,8 @@ class Transformer(nn.Module):
 
         for ind in range(depth):
             self.layers.append(nn.ModuleList([
-                LayerScale(dim, PreNorm(dim, Attention(dim, num_patches, heads = heads, dim_head = dim_head, dropout = dropout, if_patch_attn=if_patch_attn, is_LSA=is_LSA, is_Coord=is_Coord)), depth = ind + 1),
-                LayerScale(dim, PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout, is_Coord=is_Coord, if_patch_attn=if_patch_attn)), depth = ind + 1)
+                LayerScale(dim, PreNorm(num_patches, dim, Attention(dim, num_patches, heads = heads, dim_head = dim_head, dropout = dropout, if_patch_attn=if_patch_attn, is_LSA=is_LSA, is_Coord=is_Coord)), depth = ind + 1),
+                LayerScale(dim, PreNorm(num_patches, dim, FeedForward(dim, mlp_dim, dropout = dropout, is_Coord=is_Coord, if_patch_attn=if_patch_attn)), depth = ind + 1)
             ]))
         self.drop_path = DropPath(stochastic_depth) if stochastic_depth > 0 else nn.Identity()
     
