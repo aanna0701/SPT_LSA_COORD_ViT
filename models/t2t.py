@@ -190,6 +190,8 @@ class Token_transformer(nn.Module):
                  drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, num_patches=0, is_LSA=False, is_Coord=False):
         super().__init__()
         self.num_tokens = num_tokens
+        self.dim = dim
+        self.in_dim = in_dim
         self.norm1 = norm_layer(dim)
         self.attn = Attention(
             dim, in_dim=in_dim, num_heads=num_heads, qkv_bias=qkv_bias, qk_scale=qk_scale, attn_drop=attn_drop, proj_drop=drop,
