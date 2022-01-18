@@ -559,6 +559,10 @@ def main(args):
     elif args.dataset == 'IMNET':
         img_size = 224
         n_classes = 1000
+    
+    elif args.dataset == 'CIFAR100':
+        img_size = 32
+        n_classes = 100
 
     GPU = args.gpu
     
