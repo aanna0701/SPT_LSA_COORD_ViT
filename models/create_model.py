@@ -5,6 +5,8 @@ from .swin import SwinTransformer
 from .t2t import T2T_ViT
 from .regnet import *
 from .effiv2 import *
+from .resnet import resnet56, resnet110
+from .efficientnet import EfficientNetB0
 
 def create_model(img_size, n_classes, args):
     if args.model == 'vit':
@@ -94,9 +96,17 @@ def create_model(img_size, n_classes, args):
         
     elif args.model =='regnet':
         model = RegNetY_400MF(n_classes)
+
+    elif args.model =='res56':
+        model = resnet56(n_classes)
+
+    elif args.model =='res110':
+        model = resnet110(n_classes)
+
+    elif args.model =='effib0':
+        model = EfficientNetB0(n_classes)
         
-    elif args.model =='effiv2':
-        
+    elif args.model =='effiv2':        
         model = effnetv2_s(n_classes)
         
     elif args.model =='regnet_200mf':
