@@ -568,11 +568,11 @@ def main(args):
     
     model = create_model(img_size, n_classes, args)
     
-    if args.LSA:
+    if args.is_LSA:
         args.model += '-LSA'
-    if args.SPT:
+    if args.is_SPT:
         args.model += '-SPT'
-    if args.Coord:
+    if args.is_Coord:
         args.model += '-SPT'
 
     if args.type == 'latency': 
