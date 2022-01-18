@@ -62,7 +62,6 @@ class Mlp(nn.Module):
             flops += self.in_features * self.hidden_features * self.num_tokens
             flops += self.out_features * self.hidden_features * self.num_tokens
             
-        print(flops)
             
         return flops
     
@@ -92,6 +91,8 @@ class Block(nn.Module):
         flops += self.dim * self.num_tokens * 2
         flops += self.attn.flops()
         flops += self.mlp.flops()
+        
+        print(flops)
         return flops 
 
 
