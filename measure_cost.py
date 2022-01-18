@@ -541,6 +541,7 @@ def get_args_parser():
     parser.add_argument('--is_LSA', action='store_true', help='Locality Self-Attention')
     parser.add_argument('--is_SPT', action='store_true', help='Shifted Patch Tokenization')
     parser.add_argument('--is_Coord', action='store_true', help='CoordLinear')
+    parser.add_argument('--batch_size', type=int, default=128)
     return parser
 
 MODELS = MODELS = ['vit', 'swin_t','swin_s','swin_b','swin_l', 'pit', 
@@ -566,7 +567,7 @@ def main(args):
     if args.type == 'latency': 
         # Throughput
         
-        inputs = torch.randn(128, 3, img_size, img_size).cuda(GPU)
+        inputs = torch.randn(args.batch_size, 3, img_size, img_size).cuda(GPU)
         repetitions=1000
         warmup = 200
         model.cuda(GPU)
