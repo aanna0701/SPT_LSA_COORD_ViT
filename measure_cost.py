@@ -582,7 +582,7 @@ def main(args):
         repetitions=1000
         warmup = 200
         model.cuda(GPU)
-        summary(model, (3, img_size, img_size))
+        # summary(model, (3, img_size, img_size))
         total_time = 0
         with torch.no_grad():
             for rep in range(repetitions + warmup):
