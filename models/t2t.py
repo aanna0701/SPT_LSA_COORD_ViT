@@ -92,7 +92,6 @@ class Block(nn.Module):
         flops += self.attn.flops()
         flops += self.mlp.flops()
         
-        print(flops)
         return flops 
 
 
@@ -178,8 +177,8 @@ class Attention(nn.Module):
             if not self.is_Coord:
                 flops += self.dim * self.in_dim * 3 * (self.num_patches+1)
             else:
-                flops += self.dim * self.in_dim 
-                flops += (self.dim+2) * self.in_dim * 2 * self.num_patches
+                flops += self.dim * self.in_dim * 3
+                flops += (self.dim+2) * self.in_dim * 3 * self.num_patches
                 
             flops += self.in_dim * (self.num_patches**2)
             flops += self.in_dim * (self.num_patches**2)
