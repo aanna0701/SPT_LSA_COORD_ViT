@@ -111,6 +111,8 @@ class FeedForward(nn.Module):
         super().__init__()
         self.is_Coord = is_Coord
         self.if_patch_attn = if_patch_attn
+        self.dim = dim
+        self.hidden_dim = hidden_dim
         
         if not if_patch_attn:
             self.net = nn.Sequential(
