@@ -573,7 +573,7 @@ def main(args):
     if args.is_SPT:
         args.model += '-SPT'
     if args.is_Coord:
-        args.model += '-SPT'
+        args.model += '-Coord'
 
     if args.type == 'latency': 
         # Throughput
