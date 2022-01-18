@@ -569,7 +569,7 @@ def main(args):
     GPU = args.gpu
     
     model = create_model(img_size, n_classes, args)
-    summary(model, (3, img_size, img_size))
+    
 
     if args.type == 'latency': 
         # Throughput
@@ -578,6 +578,7 @@ def main(args):
         repetitions=1000
         warmup = 200
         model.cuda(GPU)
+        summary(model, (3, img_size, img_size))
         total_time = 0
         with torch.no_grad():
             for rep in range(repetitions + warmup):
