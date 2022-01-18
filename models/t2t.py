@@ -9,7 +9,7 @@ T2T-ViT
 import torch
 import torch.nn as nn
 from torch import einsum
-
+from math import sqrt
 from timm.models.layers import trunc_normal_
 import numpy as np
 from .SPT import PatchShifting
@@ -19,20 +19,21 @@ Take the standard Transformer as T2T Transformer
 """
 import torch.nn as nn
 from timm.models.layers import DropPath
-from .Coord import CoordLinear
+from .Coord import CoordLinear, AddCoords1D
 
 """
 Borrow from timm(https://github.com/rwightman/pytorch-image-models)
 """
 
 class Mlp(nn.Module):
-    def __init__(self, num_tokens, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0., is_Coord=False, exist_cls_token=True):
+    def __init__(self, num_tokens, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0., 
+                 is_Coord=False, exist_cls_token=True, addcoords=None):
         super().__init__()
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
-        self.fc1 = nn.Linear(in_features, hidden_features) if not is_Coord else CoordLinear(in_features, hidden_features, exist_cls_token=exist_cls_token)
+        self.fc1 = nn.Linear(in_features, hidden_features) if not is_Coord else CoordLinear(in_features, hidden_features, exist_cls_token=exist_cls_token, addcoords=addcoords)
         self.act = act_layer()
-        self.fc2 = nn.Linear(hidden_features, out_features) if not is_Coord else CoordLinear(hidden_features, out_features, exist_cls_token=exist_cls_token)
+        self.fc2 = nn.Linear(hidden_features, out_features) if not is_Coord else CoordLinear(hidden_features, out_features, exist_cls_token=exist_cls_token, addcoords=addcoords)
         self.drop = nn.Dropout(drop)
         self.exist_cls_token = exist_cls_token
         self.num_tokens = num_tokens
@@ -68,15 +69,17 @@ class Mlp(nn.Module):
 class Block(nn.Module):
 
     def __init__(self, dim, num_heads, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop=0., attn_drop=0.,
-                 drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, num_patches=0, is_LSA=False, is_Coord=False):
+                 drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, num_patches=0, is_LSA=False, is_Coord=False, addcoords=None):
         super().__init__()
         self.norm1 = norm_layer(dim)
         self.attn = Attention(
-            dim, num_heads=num_heads, qkv_bias=qkv_bias, qk_scale=qk_scale, attn_drop=attn_drop, proj_drop=drop, num_patches=num_patches,is_LSA=is_LSA, is_Coord=is_Coord)
+            dim, num_heads=num_heads, qkv_bias=qkv_bias, qk_scale=qk_scale, attn_drop=attn_drop, proj_drop=drop, num_patches=num_patches,
+            is_LSA=is_LSA, is_Coord=is_Coord, addcoords=addcoords)
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
         self.norm2 = norm_layer(dim)
         mlp_hidden_dim = int(dim * mlp_ratio)
-        self.mlp = Mlp(num_tokens=num_patches, in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop, is_Coord=is_Coord)
+        self.mlp = Mlp(num_tokens=num_patches, in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop, 
+                       is_Coord=is_Coord, addcoords=addcoords)
         self.num_tokens = num_patches
         self.dim = dim
 
@@ -109,7 +112,7 @@ def get_sinusoid_encoding(n_position, d_hid):
 
 class Attention(nn.Module):
     def __init__(self, dim, num_heads=8, in_dim = 256, qkv_bias=False, qk_scale=None, attn_drop=0., proj_drop=0.,
-                 num_patches=0, is_LSA=False, exist_cls_token=True, is_Coord=False):
+                 num_patches=0, is_LSA=False, exist_cls_token=True, is_Coord=False, addcoords=None):
         super().__init__()
         self.num_heads = num_heads
         self.in_dim = in_dim
@@ -119,9 +122,9 @@ class Attention(nn.Module):
         self.scale = qk_scale or head_dim ** -0.5        
         self.is_Coord = is_Coord
         self.exist_cls_token = exist_cls_token
-        self.qkv = nn.Linear(dim, in_dim * 3, bias=qkv_bias) if not is_Coord else CoordLinear(dim, in_dim*3, bias=qkv_bias, exist_cls_token=exist_cls_token)
+        self.qkv = nn.Linear(dim, in_dim * 3, bias=qkv_bias) if not is_Coord else CoordLinear(dim, in_dim*3, bias=qkv_bias, exist_cls_token=exist_cls_token, addcoords=addcoords)
         self.attn_drop = nn.Dropout(attn_drop)
-        self.proj = nn.Linear(in_dim, in_dim) if not is_Coord else CoordLinear(in_dim, in_dim, exist_cls_token=exist_cls_token)
+        self.proj = nn.Linear(in_dim, in_dim) if not is_Coord else CoordLinear(in_dim, in_dim, exist_cls_token=exist_cls_token, addcoords=addcoords)
         self.proj_drop = nn.Dropout(proj_drop)
         
         self.is_LSA = is_LSA
@@ -190,7 +193,7 @@ class Attention(nn.Module):
 class Token_transformer(nn.Module):
 
     def __init__(self, num_tokens, dim, in_dim, num_heads, mlp_ratio=1., qkv_bias=False, qk_scale=None, drop=0., attn_drop=0.,
-                 drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, num_patches=0, is_LSA=False, is_Coord=False):
+                 drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, num_patches=0, is_LSA=False, is_Coord=False, addcoords=None):
         super().__init__()
         self.num_tokens = num_tokens
         self.dim = dim
@@ -198,10 +201,11 @@ class Token_transformer(nn.Module):
         self.norm1 = norm_layer(dim)
         self.attn = Attention(
             dim, in_dim=in_dim, num_heads=num_heads, qkv_bias=qkv_bias, qk_scale=qk_scale, attn_drop=attn_drop, proj_drop=drop,
-            num_patches=num_patches, is_LSA=is_LSA, exist_cls_token=False, is_Coord=is_Coord)
+            num_patches=num_patches, is_LSA=is_LSA, exist_cls_token=False, is_Coord=is_Coord, addcoords=addcoords)
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
         self.norm2 = norm_layer(in_dim)
-        self.mlp = Mlp(num_tokens=num_tokens, in_features=in_dim, hidden_features=int(in_dim*mlp_ratio), out_features=in_dim, act_layer=act_layer, drop=drop, exist_cls_token=False, is_Coord=is_Coord)
+        self.mlp = Mlp(num_tokens=num_tokens, in_features=in_dim, hidden_features=int(in_dim*mlp_ratio), out_features=in_dim, 
+                       act_layer=act_layer, drop=drop, exist_cls_token=False, is_Coord=is_Coord, addcoords=addcoords)
 
     def forward(self, x):
         x = self.attn(self.norm1(x))
@@ -245,7 +249,7 @@ class T2T_module(nn.Module):
     """
     Tokens-to-Token encoding module
     """
-    def __init__(self, img_size=224, in_chans=3, embed_dim=768, token_dim=64, is_LSA=False, is_SPT=False, is_Coord=False):
+    def __init__(self, img_size=224, in_chans=3, embed_dim=768, token_dim=64, is_LSA=False, is_SPT=False, is_Coord=False, batch_size=128):
         super().__init__()
         
         print('adopt transformer encoder for tokens-to-token')
@@ -259,22 +263,24 @@ class T2T_module(nn.Module):
             self.soft_split2 = nn.Unfold(kernel_size=(3, 3), stride=(2, 2), padding=(1, 1))
             
             self.num_patches = (img_size // (2)) * (img_size // (2))
-            self.attention1 = Token_transformer(self.num_patches, dim=in_chans * 3 * 3, in_dim=token_dim, num_heads=1, mlp_ratio=1.0, num_patches=self.num_patches, is_LSA=is_LSA, is_Coord=is_Coord)
+            self.attention1 = Token_transformer(self.num_patches, dim=in_chans * 3 * 3, in_dim=token_dim, num_heads=1, mlp_ratio=1.0, num_patches=self.num_patches, is_LSA=is_LSA, is_Coord=is_Coord, addcoords=AddCoords1D(img_size // (2), batch_size=batch_size))
             self.num_patches = (img_size // (2 * 2)) * (img_size // (2 * 2))
-            self.attention2 = Token_transformer(self.num_patches, dim=token_dim * 3 * 3, in_dim=token_dim, num_heads=1, mlp_ratio=1.0, num_patches=self.num_patches, is_LSA=is_LSA, is_Coord=is_Coord)            
+            self.attention2 = Token_transformer(self.num_patches, dim=token_dim * 3 * 3, in_dim=token_dim, num_heads=1, mlp_ratio=1.0, num_patches=self.num_patches, is_LSA=is_LSA, is_Coord=is_Coord, addcoords=AddCoords1D(img_size // (2 * 2), batch_size=batch_size))            
             self.num_patches = (img_size // (2 * 2 * 2)) * (img_size // (2 * 2 * 2))
+            addcoords = AddCoords1D(img_size // (2 * 2 * 2), batch_size=batch_size)
 
         else:
             self.soft_split0 = nn.Unfold(kernel_size=(3, 3), stride=(2, 2), padding=(1, 1))
             self.soft_split1 = nn.Unfold(kernel_size=(3, 3), stride=(2, 2), padding=(1, 1))
             
             self.num_patches = (img_size // (2)) * (img_size // (2))
-            self.attention1 = Token_transformer(self.num_patches, dim=in_chans * 3 * 3, in_dim=token_dim, num_heads=1, mlp_ratio=1.0, num_patches=self.num_patches, is_LSA=is_LSA, is_Coord=is_Coord)
+            self.attention1 = Token_transformer(self.num_patches, dim=in_chans * 3 * 3, in_dim=token_dim, num_heads=1, mlp_ratio=1.0, num_patches=self.num_patches, is_LSA=is_LSA, is_Coord=is_Coord, addcoords=AddCoords1D(img_size // (2), batch_size=batch_size))
             self.num_patches = (img_size // (2 * 2)) * (img_size // (2 * 2))
             self.attention2 = None    
+            addcoords = AddCoords1D(img_size // (2 * 2), batch_size=batch_size)
             
         self.spt = PatchShifting(2)
-        self.project = nn.Linear(token_dim * 3 * 3, embed_dim) if not is_Coord else CoordLinear(token_dim * 3 * 3, embed_dim, exist_cls_token=False)
+        self.project = nn.Linear(token_dim * 3 * 3, embed_dim) if not is_Coord else CoordLinear(token_dim * 3 * 3, embed_dim, exist_cls_token=False, addcoords=addcoords)
         self.proj_flops = token_dim * 3 * 3 * embed_dim * self.num_patches if not is_Coord else (token_dim * 3 * 3 + 2) * embed_dim * self.num_patches
           # there are 3 sfot split, stride are 4,2,2 seperately
 
@@ -320,7 +326,7 @@ class T2T_module(nn.Module):
         return flops    
 
 class T2T_ViT(nn.Module):
-    def __init__(self, img_size=224, in_chans=3, num_classes=1000, embed_dim=256, depth=12,
+    def __init__(self, img_size=224, in_chans=3, num_classes=1000, embed_dim=256, depth=12, batch_size=128,
                  num_heads=4, mlp_ratio=2., qkv_bias=False, qk_scale=None, drop_rate=0., attn_drop_rate=0.,
                  drop_path_rate=0., norm_layer=nn.LayerNorm, token_dim=64, is_SPT=False, is_LSA=False, is_Coord=False):
         super().__init__()
@@ -328,7 +334,7 @@ class T2T_ViT(nn.Module):
         self.embed_dim = embed_dim  
         self.is_Coord = is_Coord
         self.tokens_to_token = T2T_module(
-                img_size=img_size, in_chans=in_chans, embed_dim=embed_dim, token_dim=token_dim, is_SPT=is_SPT, is_LSA=is_LSA, is_Coord=is_Coord)
+                img_size=img_size, in_chans=in_chans, embed_dim=embed_dim, token_dim=token_dim, is_SPT=is_SPT, is_LSA=is_LSA, is_Coord=is_Coord, batch_size=batch_size)
         num_patches = self.tokens_to_token.num_patches
         self.num_patches = num_patches
         self.num_classes = num_classes
@@ -336,6 +342,8 @@ class T2T_ViT(nn.Module):
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
         if not is_Coord:
             self.pos_embed = nn.Parameter(data=get_sinusoid_encoding(n_position=num_patches + 1, d_hid=embed_dim), requires_grad=False)
+        else:
+            addcoords = AddCoords1D(int(sqrt(num_patches)), batch_size)
         self.pos_drop = nn.Dropout(p=drop_rate)
         
 
@@ -343,7 +351,8 @@ class T2T_ViT(nn.Module):
         self.blocks = nn.ModuleList([
             Block(
                 dim=embed_dim, num_heads=num_heads, mlp_ratio=mlp_ratio, qkv_bias=qkv_bias, qk_scale=qk_scale,
-                drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[i], norm_layer=norm_layer, num_patches=num_patches+1, is_LSA=is_LSA, is_Coord=is_Coord)
+                drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[i], norm_layer=norm_layer, num_patches=num_patches+1, 
+                is_LSA=is_LSA, is_Coord=is_Coord, addcoords=addcoords)
             for i in range(depth)])
         self.norm = norm_layer(embed_dim)
 

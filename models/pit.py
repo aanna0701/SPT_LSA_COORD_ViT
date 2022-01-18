@@ -6,7 +6,7 @@ from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
 import math
 from .SPT import ShiftedPatchTokenization
-from .Coord import CoordLinear
+from .Coord import AddCoords1D, CoordLinear
 
 class RearrangeImage(nn.Module):
     def forward(self, x):
@@ -43,7 +43,7 @@ class PreNorm(nn.Module):
     
 
 class FeedForward(nn.Module):
-    def __init__(self, num_tokens, dim, hidden_dim, dropout = 0., is_Coord=False):
+    def __init__(self, num_tokens, dim, hidden_dim, dropout = 0., is_Coord=False, addcoords=None):
         super().__init__()
         self.num_tokens = num_tokens
         self.dim = dim
@@ -60,10 +60,10 @@ class FeedForward(nn.Module):
             )
         else:
             self.net = nn.Sequential(
-                CoordLinear(dim, hidden_dim),
+                CoordLinear(dim, hidden_dim, addcoords=addcoords),
                 nn.GELU(),
                 nn.Dropout(dropout),
-                CoordLinear(hidden_dim, dim),
+                CoordLinear(hidden_dim, dim, addcoords=addcoords),
                 nn.Dropout(dropout)
             )
   
@@ -84,7 +84,7 @@ class FeedForward(nn.Module):
         return flops
       
 class Attention(nn.Module):
-    def __init__(self, dim, num_patches, heads = 8, dim_head = 64, dropout = 0., is_LSA=False, is_Coord=False):
+    def __init__(self, dim, num_patches, heads = 8, dim_head = 64, dropout = 0., is_LSA=False, is_Coord=False, addcoords=None):
         super().__init__()
         inner_dim = dim_head *  heads
         project_out = not (heads == 1 and dim_head == dim)
@@ -103,7 +103,7 @@ class Attention(nn.Module):
             self.inf = float('-inf')
 
         self.attend = nn.Softmax(dim = -1)
-        self.to_qkv = nn.Linear(dim, inner_dim * 3, bias = False) if not is_Coord else CoordLinear(dim, inner_dim * 3, bias = False)
+        self.to_qkv = nn.Linear(dim, inner_dim * 3, bias = False) if not is_Coord else CoordLinear(dim, inner_dim * 3, bias = False, addcoords=addcoords)
         init_weights(self.to_qkv)        
  
         if not is_Coord:
@@ -113,7 +113,7 @@ class Attention(nn.Module):
             ) if project_out else nn.Identity()
         else:
             self.to_out = nn.Sequential(
-                CoordLinear(inner_dim, dim),
+                CoordLinear(inner_dim, dim, addcoords=addcoords),
                 nn.Dropout(dropout)
             ) if project_out else nn.Identity()
         
@@ -156,14 +156,15 @@ class Attention(nn.Module):
         return flops
 
 class Transformer(nn.Module):
-    def __init__(self, dim, num_patches, depth, heads, dim_head, mlp_dim_ratio, dropout = 0., stochastic_depth=0., is_LSA=False, is_Coord=False, is_last=False):
+    def __init__(self, dim, num_patches, depth, heads, dim_head, mlp_dim_ratio, dropout = 0., stochastic_depth=0., is_LSA=False, 
+                 is_Coord=False, is_last=False, addcoords=None):
         super().__init__()
         self.layers = nn.ModuleList([])
         num_patches = num_patches**2 + 1
         for i in range(depth):
             self.layers.append(nn.ModuleList([
-                PreNorm(num_patches, dim, Attention(dim, num_patches, heads = heads, dim_head = dim_head, dropout = dropout, is_LSA=is_LSA, is_Coord=is_Coord)),
-                PreNorm(num_patches, dim, FeedForward(num_patches, dim, mlp_dim_ratio, dropout = dropout, is_Coord=is_Coord if not (i == depth-1 and is_last) else False))
+                PreNorm(num_patches, dim, Attention(dim, num_patches, heads = heads, dim_head = dim_head, dropout = dropout, is_LSA=is_LSA, is_Coord=is_Coord, addcoords=addcoords)),
+                PreNorm(num_patches, dim, FeedForward(num_patches, dim, mlp_dim_ratio, dropout = dropout, is_Coord=is_Coord if not (i == depth-1 and is_last) else False, addcoords=addcoords))
             ]))            
             
         self.drop_path = DropPath(stochastic_depth) if stochastic_depth > 0 else nn.Identity()
@@ -255,7 +256,7 @@ def pair(t):
 
 class PiT(nn.Module):
     def __init__(self, *, img_size, patch_size, num_classes, dim, depth, heads, mlp_dim_ratio, dim_head = 64, dropout = 0., 
-                 emb_dropout = 0., stochastic_depth=0., 
+                 emb_dropout = 0., stochastic_depth=0., batch_size=128,
                  is_SPT=False, is_LSA=False, is_Coord=False):
         super(PiT, self).__init__()
         heads = cast_tuple(heads, len(depth))
@@ -266,6 +267,11 @@ class PiT(nn.Module):
         self.is_SPT = is_SPT
         self.dim = dim
         self.num_classes = num_classes
+        
+        if not is_Coord:
+            self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
+        else:
+            addcoords = AddCoords1D(output_size, batch_size)
 
         if not is_SPT:
             self.to_patch_embedding = nn.Sequential(
@@ -275,11 +281,9 @@ class PiT(nn.Module):
             self.pe_flops = 3 * dim * patch_size*2 * patch_size*2 * num_patches
             
         else:
-            self.to_patch_embedding = ShiftedPatchTokenization(img_size**2, 3, dim, patch_size, is_pe=True, is_Coord=is_Coord)
+            self.to_patch_embedding = ShiftedPatchTokenization(img_size**2, 3, dim, patch_size, is_pe=True, is_Coord=is_Coord, addcoords=addcoords)
             
         
-        if not is_Coord:
-            self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.dropout = nn.Dropout(emb_dropout)
 
@@ -289,15 +293,17 @@ class PiT(nn.Module):
             not_last = ind < (len(depth) - 1)
             
             self.layers.append(Transformer(dim, output_size, layer_depth, layer_heads,
-                                           dim_head, dim*mlp_dim_ratio, dropout, stochastic_depth, is_LSA=is_LSA, is_Coord=is_Coord, is_last = True if ind == len(depth)-1 else False))
+                                           dim_head, dim*mlp_dim_ratio, dropout, stochastic_depth, is_LSA=is_LSA, is_Coord=is_Coord, is_last = True if ind == len(depth)-1 else False, addcoords=addcoords))
 
             if not_last:
                 if not is_SPT:
                     self.layers.append(Pool(output_size, dim))
                     output_size = conv_output_size(output_size, 3, 2, 1)
                 else:
-                    self.layers.append(ShiftedPatchTokenization(output_size**2, dim, dim*2, 2, exist_class_t=True, is_Coord=is_Coord)) 
+                    addcoords = AddCoords1D(output_size//2, batch_size)
+                    self.layers.append(ShiftedPatchTokenization(output_size**2, dim, dim*2, 2, exist_class_t=True, is_Coord=is_Coord, addcoords=addcoords)) 
                     output_size //= 2
+                    
                 
                 dim *= 2
        
