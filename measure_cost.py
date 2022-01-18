@@ -9,6 +9,8 @@ import sys
 from functools import partial
 from models.create_model import create_model
 
+from torchsummary import summary
+
 def get_model_complexity_info(model, input_res,
                               print_per_layer_stat=True,
                               as_strings=True,
@@ -541,7 +543,7 @@ def get_args_parser():
     parser.add_argument('--is_LSA', action='store_true', help='Locality Self-Attention')
     parser.add_argument('--is_SPT', action='store_true', help='Shifted Patch Tokenization')
     parser.add_argument('--is_Coord', action='store_true', help='CoordLinear')
-    parser.add_argument('--batch_size', type=int, default=128)
+    parser.add_argument('--batch_size', type=int, default=2)
     return parser
 
 MODELS = MODELS = ['vit', 'swin_t','swin_s','swin_b','swin_l', 'pit', 
@@ -567,6 +569,7 @@ def main(args):
     GPU = args.gpu
     
     model = create_model(img_size, n_classes, args)
+    summary(model, (3, img_size, img_size))
 
     if args.type == 'latency': 
         # Throughput
