@@ -161,6 +161,7 @@ class Attention(nn.Module):
         self.heads = heads
         self.scale = dim_head ** -0.5
         self.is_Coord = is_Coord
+        self.dim = dim
         if not is_Coord:
             self.to_q = nn.Linear(dim, inner_dim, bias = False)
             self.to_kv = nn.Linear(dim, inner_dim * 2, bias = False)
