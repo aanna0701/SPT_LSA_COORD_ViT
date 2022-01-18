@@ -4,7 +4,7 @@ from utils.drop_path import DropPath
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
 from .SPT import ShiftedPatchTokenization
-from .Coord import AddCoords1D, CoordLinear
+from .Coord import CoordLinear
 # helpers
  
 def pair(t):
@@ -36,7 +36,7 @@ class PreNorm(nn.Module):
         return flops   
  
 class FeedForward(nn.Module):
-    def __init__(self, dim, num_patches, hidden_dim, dropout = 0., is_Coord=False, addcoords=None):
+    def __init__(self, dim, num_patches, hidden_dim, dropout = 0., is_Coord=False):
         super().__init__()
         self.dim = dim
         self.hidden_dim = hidden_dim
@@ -53,10 +53,10 @@ class FeedForward(nn.Module):
             )            
         else:
             self.net = nn.Sequential(
-                CoordLinear(dim, hidden_dim, addcoords=addcoords),
+                CoordLinear(dim, hidden_dim),
                 nn.GELU(),
                 nn.Dropout(dropout),
-                CoordLinear(hidden_dim, dim, addcoords=addcoords),
+                CoordLinear(hidden_dim, dim),
                 nn.Dropout(dropout)
             )            
     def forward(self, x):
@@ -77,7 +77,7 @@ class FeedForward(nn.Module):
 
 
 class Attention(nn.Module):
-    def __init__(self, dim, num_patches, heads = 8, dim_head = 64, dropout = 0., is_LSA=False, is_Coord=False, addcoords=None):
+    def __init__(self, dim, num_patches, heads = 8, dim_head = 64, dropout = 0., is_LSA=False, is_Coord=False):
         super().__init__()
         inner_dim = dim_head *  heads
         project_out = not (heads == 1 and dim_head == dim)
@@ -88,7 +88,7 @@ class Attention(nn.Module):
         self.inner_dim = inner_dim
         self.attend = nn.Softmax(dim = -1)
         self. is_Coord = is_Coord
-        self.to_qkv = nn.Linear(self.dim, self.inner_dim * 3, bias = False) if not is_Coord else CoordLinear(self.dim, self.inner_dim * 3, bias = False, addcoords=addcoords)
+        self.to_qkv = nn.Linear(self.dim, self.inner_dim * 3, bias = False) if not is_Coord else CoordLinear(self.dim, self.inner_dim * 3, bias = False)
         init_weights(self.to_qkv)
         
         if not is_Coord:
@@ -98,7 +98,7 @@ class Attention(nn.Module):
             ) if project_out else nn.Identity() 
         else:
             self.to_out = nn.Sequential(
-                CoordLinear(self.inner_dim, self.dim, addcoords=addcoords),
+                CoordLinear(self.inner_dim, self.dim),
                 nn.Dropout(dropout)
             ) if project_out else nn.Identity()
             
@@ -149,16 +149,15 @@ class Attention(nn.Module):
 
 
 class Transformer(nn.Module):
-    def __init__(self, dim, num_patches, depth, heads, dim_head, mlp_dim_ratio, dropout = 0., stochastic_depth=0., is_LSA=False, 
-                 is_Coord=False, addcoords=None):
+    def __init__(self, dim, num_patches, depth, heads, dim_head, mlp_dim_ratio, dropout = 0., stochastic_depth=0., is_LSA=False, is_Coord=False):
         super().__init__()
         self.layers = nn.ModuleList([])
         self.scale = {}
 
         for i in range(depth):
             self.layers.append(nn.ModuleList([
-                PreNorm(num_patches, dim, Attention(dim, num_patches, heads = heads, dim_head = dim_head, dropout = dropout, is_LSA=is_LSA, is_Coord=is_Coord, addcoords=addcoords)),
-                PreNorm(num_patches, dim, FeedForward(dim, num_patches, dim * mlp_dim_ratio, dropout = dropout, is_Coord=is_Coord if not i == depth-1 else False, addcoords=addcoords))
+                PreNorm(num_patches, dim, Attention(dim, num_patches, heads = heads, dim_head = dim_head, dropout = dropout, is_LSA=is_LSA, is_Coord=is_Coord)),
+                PreNorm(num_patches, dim, FeedForward(dim, num_patches, dim * mlp_dim_ratio, dropout = dropout, is_Coord=is_Coord if not i == depth-1 else False))
             ]))            
         self.drop_path = DropPath(stochastic_depth) if stochastic_depth > 0 else nn.Identity()
     
@@ -178,7 +177,7 @@ class Transformer(nn.Module):
         return flops
 
 class ViT(nn.Module):
-    def __init__(self, *, img_size, patch_size, num_classes, dim, depth, heads, mlp_dim_ratio, channels = 3, batch_size = 128,
+    def __init__(self, *, img_size, patch_size, num_classes, dim, depth, heads, mlp_dim_ratio, channels = 3, 
                  dim_head = 16, dropout = 0., emb_dropout = 0., stochastic_depth=0.,is_LSA=False, is_SPT=False, is_Coord=False):
         super().__init__()
         image_height, image_width = pair(img_size)
@@ -188,11 +187,6 @@ class ViT(nn.Module):
         self.dim = dim
         self.num_classes = num_classes
         self.is_Coord = is_Coord
-        addcoords = None
-        if not is_Coord:
-            self.pos_embedding = nn.Parameter(torch.randn(1, self.num_patches + 1, self.dim))
-        else:
-            addcoords = AddCoords1D(img_size//patch_size, batch_size)
        
         if not is_SPT:
             self.to_patch_embedding = nn.Sequential(
@@ -201,12 +195,15 @@ class ViT(nn.Module):
             )
             
         else:
-            self.to_patch_embedding = ShiftedPatchTokenization(self.num_patches, 3, self.dim, patch_size, is_pe=True, is_Coord=is_Coord, addcoords=addcoords)
+            self.to_patch_embedding = ShiftedPatchTokenization(self.num_patches, 3, self.dim, patch_size, is_pe=True, is_Coord=is_Coord)
+        
+        if not is_Coord:
+            self.pos_embedding = nn.Parameter(torch.randn(1, self.num_patches + 1, self.dim))
             
         self.cls_token = nn.Parameter(torch.randn(1, 1, self.dim))
         self.dropout = nn.Dropout(emb_dropout)
         self.transformer = Transformer(self.dim, self.num_patches, depth, heads, dim_head, mlp_dim_ratio, dropout, 
-                                       stochastic_depth, is_LSA=is_LSA, is_Coord=is_Coord, addcoords = addcoords)
+                                       stochastic_depth, is_LSA=is_LSA, is_Coord=is_Coord)
 
         self.mlp_head = nn.Sequential(
             nn.LayerNorm(self.dim),

@@ -6,83 +6,52 @@ from einops import rearrange
     
 class AddCoords1D(nn.Module):
     
-    def __init__(self, input_size, batch_size):
+    def __init__(self, with_r=False):
         super().__init__()
-        self.xx_channel = torch.arange(input_size).repeat(1, input_size, 1)
-        self.yy_channel = self.xx_channel.clone().transpose(1, 2)
-
-        self.xx_channel = self.xx_channel.float() / (input_size - 1)
-        self.yy_channel = self.yy_channel.float() / (input_size - 1)
-
-        self.xx_channel = self.xx_channel * 2 - 1
-        self.yy_channel = self.yy_channel * 2 - 1
-        
-        self.xx_channel = self.xx_channel.repeat(batch_size, 1, 1, 1).transpose(2, 3)
-        self.yy_channel = self.yy_channel.repeat(batch_size, 1, 1, 1).transpose(2, 3)
-        
-        self.input_size = input_size
+        self.with_r = with_r
         
     def forward(self, input_tensor):
+        """
+        Args:
+            input_tensor: shape(batch, channel, x_dim, y_dim)
+        """
+
+        batch_size, n, _ = input_tensor.size()
+        t_dim = int(sqrt(n)) 
+        xx_channel = torch.arange(t_dim).repeat(1, t_dim, 1)
+        yy_channel = xx_channel.clone().transpose(1, 2)
+
+        xx_channel = xx_channel.float() / (t_dim - 1)
+        yy_channel = yy_channel.float() / (t_dim - 1)
+
+        xx_channel = xx_channel * 2 - 1
+        yy_channel = yy_channel * 2 - 1
+
+        xx_channel = xx_channel.repeat(batch_size, 1, 1, 1).transpose(2, 3)
+        yy_channel = yy_channel.repeat(batch_size, 1, 1, 1).transpose(2, 3)
         
-        input_tensor = rearrange(input_tensor, 'b (h w) d -> b d h w', h = self.input_size)     
+        input_tensor = rearrange(input_tensor, 'b (h w) d -> b d h w', h = t_dim)     
+        
 
         ret = torch.cat([
             input_tensor,
-            self.xx_channel.type_as(input_tensor),
-            self.yy_channel.type_as(input_tensor)], dim=1)
+            xx_channel.type_as(input_tensor),
+            yy_channel.type_as(input_tensor)], dim=1)
+      
+        if self.with_r:
+            rr = torch.sqrt(torch.pow(xx_channel.type_as(input_tensor) - 0.5, 2) + torch.pow(yy_channel.type_as(input_tensor) - 0.5, 2))
+            ret = torch.cat([ret, rr], dim=1)
 
         ret = rearrange(ret, 'b d h w -> b (h w) d')
 
         return ret
 
-# class AddCoords1D(nn.Module):
-    
-#     def __init__(self, with_r=False):
-#         super().__init__()
-#         self.with_r = with_r
-        
-#     def forward(self, input_tensor):
-#         """
-#         Args:
-#             input_tensor: shape(batch, channel, x_dim, y_dim)
-#         """
-
-#         batch_size, n, _ = input_tensor.size()
-#         t_dim = int(sqrt(n)) 
-#         self.xx_channel = torch.arange(t_dim).repeat(1, t_dim, 1)
-#         self.yy_channel = self.xx_channel.clone().transpose(1, 2)
-
-#         self.xx_channel = self.xx_channel.float() / (t_dim - 1)
-#         self.yy_channel = self.yy_channel.float() / (t_dim - 1)
-
-#         self.xx_channel = self.xx_channel * 2 - 1
-#         self.yy_channel = self.yy_channel * 2 - 1
-
-#         self.xx_channel = self.xx_channel.repeat(batch_size, 1, 1, 1).transpose(2, 3)
-#         self.yy_channel = self.yy_channel.repeat(batch_size, 1, 1, 1).transpose(2, 3)
-        
-#         input_tensor = rearrange(input_tensor, 'b (h w) d -> b d h w', h = t_dim)     
-        
-
-#         ret = torch.cat([
-#             input_tensor,
-#             self.xx_channel.type_as(input_tensor),
-#             self.yy_channel.type_as(input_tensor)], dim=1)
-      
-#         if self.with_r:
-#             rr = torch.sqrt(torch.pow(self.xx_channel.type_as(input_tensor) - 0.5, 2) + torch.pow(self.yy_channel.type_as(input_tensor) - 0.5, 2))
-#             ret = torch.cat([ret, rr], dim=1)
-
-#         ret = rearrange(ret, 'b d h w -> b (h w) d')
-
-#         return ret
-
 
 class CoordLinear(nn.Module):
 
-    def __init__(self, in_channels, out_channels, bias=True, with_r=False, exist_cls_token=True, addcoords=None):
+    def __init__(self, in_channels, out_channels, bias=True, with_r=False, exist_cls_token=True):
         super().__init__()
-        self.addcoords = addcoords
+        self.addcoords = AddCoords1D(with_r=with_r)
         in_size = in_channels+2
         if with_r:
             in_size += 1

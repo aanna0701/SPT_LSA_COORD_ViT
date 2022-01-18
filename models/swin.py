@@ -12,16 +12,16 @@ from timm.models.layers import to_2tuple, trunc_normal_
 from utils.drop_path import DropPath
 import torch
 from .SPT import ShiftedPatchTokenization
-from .Coord import AddCoords1D, CoordLinear
+from .Coord import CoordLinear
 
 class Mlp(nn.Module):
-    def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0., is_Coord=False, addcoords=None):
+    def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0., is_Coord=False):
         super().__init__()
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
-        self.fc1 = nn.Linear(in_features, hidden_features) if not is_Coord else CoordLinear(in_features, hidden_features, exist_cls_token=False, addcoords=addcoords)
+        self.fc1 = nn.Linear(in_features, hidden_features) if not is_Coord else CoordLinear(in_features, hidden_features, exist_cls_token=False)
         self.act = act_layer()
-        self.fc2 = nn.Linear(hidden_features, out_features) if not is_Coord else CoordLinear(hidden_features, out_features, exist_cls_token=False, addcoords=addcoords)
+        self.fc2 = nn.Linear(hidden_features, out_features) if not is_Coord else CoordLinear(hidden_features, out_features, exist_cls_token=False)
         self.drop = nn.Dropout(drop)
 
     def forward(self, x):
@@ -76,7 +76,7 @@ class WindowAttention(nn.Module):
         proj_drop (float, optional): Dropout ratio of output. Default: 0.0
     """
 
-    def __init__(self, dim, window_size, num_heads, qkv_bias=True, qk_scale=None, attn_drop=0., proj_drop=0., is_LSA=False, is_Coord=False, addcoords=None):
+    def __init__(self, dim, window_size, num_heads, qkv_bias=True, qk_scale=None, attn_drop=0., proj_drop=0., is_LSA=False, is_Coord=False):
 
         super().__init__()
         self.dim = dim
@@ -109,9 +109,9 @@ class WindowAttention(nn.Module):
         relative_position_index = relative_coords.sum(-1)  # Wh*Ww, Wh*Ww
         self.register_buffer("relative_position_index", relative_position_index)
         self.is_Coord = is_Coord
-        self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias) if not is_Coord else CoordLinear(dim, dim * 3, bias=qkv_bias, exist_cls_token=False, addcoords=addcoords)
+        self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias) if not is_Coord else CoordLinear(dim, dim * 3, bias=qkv_bias, exist_cls_token=False)
         self.attn_drop = nn.Dropout(attn_drop)
-        self.proj = nn.Linear(dim, dim) if not is_Coord else CoordLinear(dim, dim, exist_cls_token=False, addcoords=addcoords)
+        self.proj = nn.Linear(dim, dim) if not is_Coord else CoordLinear(dim, dim, exist_cls_token=False)
         self.proj_drop = nn.Dropout(proj_drop)
 
         trunc_normal_(self.relative_position_bias_table, std=.02)
@@ -207,7 +207,7 @@ class SwinTransformerBlock(nn.Module):
 
     def __init__(self, dim, input_resolution, num_heads, window_size=7, shift_size=0,
                  mlp_ratio=4., qkv_bias=True, qk_scale=None, drop=0., attn_drop=0., drop_path=0.,
-                 act_layer=nn.GELU, norm_layer=nn.LayerNorm, is_LSA=False, is_Coord=False, is_last=False, addcoords_attnd=None, addcoords_mlp=None):
+                 act_layer=nn.GELU, norm_layer=nn.LayerNorm, is_LSA=False, is_Coord=False, is_last=False):
         super().__init__()
         self.dim = dim
         self.input_resolution = input_resolution
@@ -225,12 +225,12 @@ class SwinTransformerBlock(nn.Module):
         self.norm1 = norm_layer(dim)
         self.attn = WindowAttention(
             dim, window_size=to_2tuple(self.window_size), num_heads=num_heads,
-            qkv_bias=qkv_bias, qk_scale=qk_scale, attn_drop=attn_drop, proj_drop=drop, is_LSA=is_LSA, is_Coord=is_Coord, addcoords=addcoords_attnd)
+            qkv_bias=qkv_bias, qk_scale=qk_scale, attn_drop=attn_drop, proj_drop=drop, is_LSA=is_LSA, is_Coord=is_Coord)
 
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
         self.norm2 = norm_layer(dim)
         mlp_hidden_dim = int(dim * mlp_ratio)
-        self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop, is_Coord=is_Coord if not is_last else False, addcoords=addcoords_mlp)
+        self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop, is_Coord=is_Coord if not is_last else False)
 
         if self.shift_size > 0:
             # calculate attention mask for SW-MSA
@@ -388,7 +388,7 @@ class BasicLayer(nn.Module):
         use_checkpoint (bool): Whether to use checkpointing to save memory. Default: False.
     """
 
-    def __init__(self, dim, input_resolution, depth, num_heads, window_size, batch_size=128, 
+    def __init__(self, dim, input_resolution, depth, num_heads, window_size, 
                  mlp_ratio=4., qkv_bias=True, qk_scale=None, drop=0., attn_drop=0.,
                  drop_path=0., norm_layer=nn.LayerNorm, downsample=False, use_checkpoint=False,
                  is_LSA=False, is_SPT=False, is_Coord=False, is_last=False):
@@ -398,8 +398,8 @@ class BasicLayer(nn.Module):
         self.input_resolution = input_resolution
         self.depth = depth
         self.use_checkpoint = use_checkpoint
-        addcoords_attnd = AddCoords1D(window_size, batch_size*((input_resolution[0]//window_size)**2))
-        addcoords_mlp = AddCoords1D(input_resolution[0], batch_size)
+
+        
         # build blocks
         self.blocks = nn.ModuleList([
             SwinTransformerBlock(dim=dim, input_resolution=input_resolution,
@@ -409,7 +409,7 @@ class BasicLayer(nn.Module):
                                  qkv_bias=qkv_bias, qk_scale=qk_scale,
                                  drop=drop, attn_drop=attn_drop,
                                  drop_path=drop_path[i] if isinstance(drop_path, list) else drop_path,
-                                 norm_layer=norm_layer, is_LSA=is_LSA, is_Coord=is_Coord, is_last=True if (i == depth-1 and is_last) else False, addcoords_attnd=addcoords_attnd, addcoords_mlp=addcoords_mlp)
+                                 norm_layer=norm_layer, is_LSA=is_LSA, is_Coord=is_Coord, is_last=True if (i == depth-1 and is_last) else False)
             for i in range(depth)])
 
         # patch merging layer
@@ -417,8 +417,7 @@ class BasicLayer(nn.Module):
             if not is_SPT:
                 self.downsample = PatchMerging(input_resolution, dim=dim, norm_layer=norm_layer)
             else:
-                addcoords = AddCoords1D(input_resolution[0]//2, batch_size)
-                self.downsample = ShiftedPatchTokenization(input_resolution[0]*input_resolution[1], dim, dim*2, 2, is_Coord=is_Coord, addcoords=addcoords)
+                self.downsample = ShiftedPatchTokenization(input_resolution[0]*input_resolution[1], dim, dim*2, 2, is_Coord=is_Coord)
                     
         else:
             self.downsample = None
@@ -521,7 +520,7 @@ class SwinTransformer(nn.Module):
                  embed_dim=96, depths=[2, 2, 6, 2], num_heads=[3, 6, 12, 24],
                  window_size=7, mlp_ratio=4., qkv_bias=True, qk_scale=None,
                  drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1,
-                 norm_layer=nn.LayerNorm, patch_norm=True, batch_size=128,
+                 norm_layer=nn.LayerNorm, patch_norm=True,
                  use_checkpoint=False, is_LSA=False, is_SPT=False, is_Coord=False,
                  **kwargs):
         super().__init__()
@@ -534,13 +533,6 @@ class SwinTransformer(nn.Module):
         self.num_features = int(embed_dim * 2 ** (self.num_layers - 1))
         self.mlp_ratio = mlp_ratio
         self.is_Coord = is_Coord
-        addcoords = None
-        # absolute position embedding
-        if not is_Coord:
-            self.absolute_pos_embed = nn.Parameter(torch.zeros(1, self.img_resolution[0]**2, embed_dim))
-            trunc_normal_(self.absolute_pos_embed, std=.02)
-        else:
-            addcoords = AddCoords1D(img_size//patch_size, batch_size)
         
         """ Base """
         if not is_SPT:
@@ -550,8 +542,13 @@ class SwinTransformer(nn.Module):
             self.img_resolution = self.patch_embed.patches_resolution
 
         else:
-            self.patch_embed = ShiftedPatchTokenization(img_size**2, 3, embed_dim, patch_size, is_pe=True, is_Coord=is_Coord, addcoords=addcoords)
+            self.patch_embed = ShiftedPatchTokenization(img_size**2, 3, embed_dim, patch_size, is_pe=True, is_Coord=is_Coord)
             self.img_resolution = (img_size//patch_size, img_size//patch_size)  
+        
+        # absolute position embedding
+        if not is_Coord:
+            self.absolute_pos_embed = nn.Parameter(torch.zeros(1, self.img_resolution[0]**2, embed_dim))
+            trunc_normal_(self.absolute_pos_embed, std=.02)
 
         self.pos_drop = nn.Dropout(p=drop_rate)
 
@@ -579,8 +576,7 @@ class SwinTransformer(nn.Module):
                                norm_layer=norm_layer, is_LSA=is_LSA, is_SPT=is_SPT, is_Coord=is_Coord,
                                downsample=True if (i_layer < self.num_layers - 1) else False,
                                use_checkpoint=use_checkpoint,
-                               is_last = False if not i_layer == self.num_layers-1 else True,
-                               batch_size=batch_size)
+                               is_last = False if not i_layer == self.num_layers-1 else True)
             self.layers.append(layer)
             
         self.img_resolution = [self.img_resolution[0] // (2**(self.num_layers-1)), 
