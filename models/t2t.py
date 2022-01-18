@@ -111,6 +111,8 @@ class Attention(nn.Module):
         super().__init__()
         self.num_heads = num_heads
         self.in_dim = in_dim
+        self.dim = dim
+        self.num_patches = num_patches
         head_dim = dim // num_heads
         self.scale = qk_scale or head_dim ** -0.5        
         self.is_Coord = is_Coord
@@ -161,25 +163,25 @@ class Attention(nn.Module):
         
         if not self.exist_cls_token:
             if not self.is_Coord:
-                flops += self.dim * self.inner_dim * 3 * self.num_patches
+                flops += self.dim * self.in_dim * 3 * self.num_patches
             else:    
-                flops += (self.dim+2) * self.inner_dim * 3 * self.num_patches
+                flops += (self.dim+2) *self.in_dim * 3 * self.num_patches
                 
-            flops += self.inner_dim * (self.num_patches**2)
-            flops += self.inner_dim * (self.num_patches**2)
-            flops += self.inner_dim * self.dim * self.num_patches
+            flops += self.in_dim * (self.num_patches**2)
+            flops += self.in_dim * (self.num_patches**2)
+            flops += self.in_dim * self.dim * self.num_patches
         
         else:
             if not self.is_Coord:
-                flops += self.dim * self.inner_dim 
-                flops += self.dim * self.inner_dim * 2 * (self.num_patches+1)
+                flops += self.dim * self.in_dim 
+                flops += self.dim * self.in_dim * 2 * (self.num_patches+1)
             else:
-                flops += self.dim * self.inner_dim 
-                flops += (self.dim+2) * self.inner_dim * 2 * (self.num_patches+1)
+                flops += self.dim * self.in_dim 
+                flops += (self.dim+2) * self.in_dim * 2 * (self.num_patches+1)
                 
-            flops += self.inner_dim * self.num_patches
-            flops += self.inner_dim * self.num_patches
-            flops += self.inner_dim * self.dim      
+            flops += self.in_dim * self.num_patches
+            flops += self.in_dim * self.num_patches
+            flops += self.in_dim * self.dim      
         
         return flops
 
