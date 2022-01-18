@@ -33,6 +33,14 @@ class PreNorm(nn.Module):
         
         return self.fn(self.norm(x), **kwargs)
     
+    def flops(self):
+        flops = 0
+        
+        flops += self.fn.flops()
+        flops += self.dim * self.num_tokens
+        
+        return flops
+    
 
 class FeedForward(nn.Module):
     def __init__(self, num_tokens, dim, hidden_dim, dropout = 0., is_Coord=False):
@@ -59,10 +67,22 @@ class FeedForward(nn.Module):
                 nn.Dropout(dropout)
             )
   
-        
     def forward(self, x):
         return self.net(x)    
-    
+  
+    def flops(self):
+        flops = 0
+        if not self.is_Coord:
+            flops += self.dim * self.hidden_dim * self.num_tokens
+            flops += self.dim * self.hidden_dim * self.num_tokens
+        else:
+            flops += (self.dim+2) * self.hidden_dim * self.num_tokens
+            flops += self.dim * self.hidden_dim
+            flops += self.dim * (self.hidden_dim+2) * self.num_tokens
+            flops += self.dim * self.hidden_dim
+        
+        return flops
+      
 class Attention(nn.Module):
     def __init__(self, dim, num_patches, heads = 8, dim_head = 64, dropout = 0., is_LSA=False, is_Coord=False):
         super().__init__()
@@ -117,7 +137,23 @@ class Attention(nn.Module):
         out = rearrange(out, 'b h n d -> b n (h d)')
         
         return self.to_out(out)
-    
+
+    def flops(self):
+        flops = 0
+        if not self.is_Coord:
+            flops += self.dim * self.inner_dim * 3 * self.num_patches
+        else:
+            flops += (self.dim+2) * self.inner_dim * 3 * self.num_patches
+            flops += self.dim * self.inner_dim * 3 
+        flops += self.inner_dim * (self.num_patches**2)
+        flops += self.inner_dim * (self.num_patches**2)
+        if not self.is_Coord:
+            flops += self.inner_dim * self.dim * self.num_patches
+        else:
+            flops += (self.inner_dim+2) * self.dim * self.num_patches
+            flops += self.inner_dim * self.dim
+        
+        return flops
 
 class Transformer(nn.Module):
     def __init__(self, dim, num_patches, depth, heads, dim_head, mlp_dim_ratio, dropout = 0., stochastic_depth=0., is_LSA=False, is_Coord=False, is_last=False):
@@ -137,6 +173,15 @@ class Transformer(nn.Module):
             x = self.drop_path(ff(x)) + x
             
         return x
+
+    def flops(self):
+        flops = 0
+        
+        for (attn, ff) in self.layers:       
+            flops += attn.flops()
+            flops += ff.flops()
+        
+        return flops
     
 # depthwise convolution, for pooling
 
@@ -162,9 +207,16 @@ class DepthWiseConv2d(nn.Module):
             nn.Conv2d(dim_out, dim_out, kernel_size = 1, bias = bias)
         ) 
                 
-        
     def forward(self, x):
         return self.net(x)
+    
+    def flops(self):
+        flops = 0
+             
+        flops += self.dim_out * self.kernel_size * self.kernel_size * self.out_size * self.out_size
+        flops += self.dim_out * self.dim_out * self.out_size * self.out_size
+        
+        return flops
     
     
 # pooling layer
@@ -188,6 +240,14 @@ class Pool(nn.Module):
 
         return torch.cat((cls_token, tokens), dim = 1)
     
+    def flops(self):
+        flops = 0
+             
+        flops += self.downsample.flops()
+        flops += self.dim * self.dim * 2
+        
+        return flops
+    
 # main class
 
 def pair(t):
@@ -201,18 +261,19 @@ class PiT(nn.Module):
         heads = cast_tuple(heads, len(depth))
         self.num_classes = num_classes
         self.is_Coord = is_Coord
+        output_size = img_size // patch_size
+        num_patches = output_size ** 2  
 
         if not is_SPT:
             self.to_patch_embedding = nn.Sequential(
                 nn.Conv2d(3, dim, patch_size, patch_size),
                 Rearrange('b c h w -> b (h w) c')
-            )            
+            )
+            self.pe_flops = 3 * dim * patch_size*2 * patch_size*2 * num_patches
             
         else:
-            self.to_patch_embedding = ShiftedPatchTokenization(3, dim, patch_size, is_pe=True, is_Coord=is_Coord)
+            self.to_patch_embedding = ShiftedPatchTokenization(img_size**2, 3, dim, patch_size, is_pe=True, is_Coord=is_Coord)
             
-        output_size = img_size // patch_size
-        num_patches = output_size ** 2   
         
         if not is_Coord:
             self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
@@ -232,7 +293,7 @@ class PiT(nn.Module):
                     self.layers.append(Pool(output_size, dim))
                     output_size = conv_output_size(output_size, 3, 2, 1)
                 else:
-                    self.layers.append(ShiftedPatchTokenization(dim, dim*2, 2, exist_class_t=True, is_Coord=is_Coord)) 
+                    self.layers.append(ShiftedPatchTokenization(output_size**2, dim, dim*2, 2, exist_class_t=True, is_Coord=is_Coord)) 
                     output_size //= 2
                 
                 dim *= 2
@@ -257,4 +318,18 @@ class PiT(nn.Module):
             x = layer(x)
 
         return self.mlp_head(x[:, 0])
+    
+    def flops(self):
+        flops = 0
+        
+        flops_pe = self.pe_flops if not self.is_SPT else self.to_patch_embedding.flops()
+        flops += flops_pe
+        
+        for layer in self.layers:            
+            flops += layer.flops()  
+        
+        flops += self.dim               # layer norm
+        flops += self.dim * self.num_classes    # linear
+        
+        return flops
     

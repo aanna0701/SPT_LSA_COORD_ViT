@@ -73,4 +73,5 @@ class CoordLinear(nn.Module):
             ret = self.linear(ret)  # (b, n, d')
             out = ret   
         
-        return out 
+        return out
+    

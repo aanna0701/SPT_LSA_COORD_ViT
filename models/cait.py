@@ -81,6 +81,12 @@ class LayerScale(nn.Module):
         self.fn = fn
     def forward(self, x, **kwargs):
         return self.fn(x, **kwargs) * self.scale
+    def flops(self):
+        flops = 0
+        
+        flops += self.fn.flops()
+        
+        return flops
 
 class PreNorm(nn.Module):
     def __init__(self, dim, fn):
@@ -89,12 +95,21 @@ class PreNorm(nn.Module):
         self.fn = fn
     def forward(self, x, **kwargs):
         return self.fn(self.norm(x), **kwargs)
+    def flops(self):
+        flops = 0
+        
+        flops += self.fn.flops()
+        flops += self.dim * self.num_tokens
+        
+        return flops
 
 class FeedForward(nn.Module):
-    def __init__(self, dim, hidden_dim, dropout = 0., is_Coord=False):
+    def __init__(self, dim, hidden_dim, dropout = 0., is_Coord=False, if_patch_attn=True):
         super().__init__()
         self.is_Coord = is_Coord
-        if not is_Coord:
+        self.if_patch_attn = if_patch_attn
+        
+        if not if_patch_attn:
             self.net = nn.Sequential(
                 nn.Linear(dim, hidden_dim),
                 nn.GELU(),
@@ -102,18 +117,42 @@ class FeedForward(nn.Module):
                 nn.Linear(hidden_dim, dim),
                 nn.Dropout(dropout)
             )
-
+        
         else:
-            self.net = nn.Sequential(
-                CoordLinear(dim, hidden_dim, exist_cls_token=False),
-                nn.GELU(),
-                nn.Dropout(dropout),
-                CoordLinear(hidden_dim, dim, exist_cls_token=False),
-                nn.Dropout(dropout)
-            )
+            if not is_Coord:
+                self.net = nn.Sequential(
+                    nn.Linear(dim, hidden_dim),
+                    nn.GELU(),
+                    nn.Dropout(dropout),
+                    nn.Linear(hidden_dim, dim),
+                    nn.Dropout(dropout)
+                )
+            else:
+                self.net = nn.Sequential(
+                    CoordLinear(dim, hidden_dim, exist_cls_token=False),
+                    nn.GELU(),
+                    nn.Dropout(dropout),
+                    CoordLinear(hidden_dim, dim, exist_cls_token=False),
+                    nn.Dropout(dropout)
+                )
             
     def forward(self, x):
         return self.net(x)
+
+    def flops(self):
+        flops = 0
+        if not self.if_patch_attn:
+            flops += self.dim * self.hidden_dim
+            flops += self.dim * self.hidden_dim
+        else:
+            if self.is_Coord:
+                flops += (self.dim+2) * self.hidden_dim * self.num_tokens
+                flops += self.dim * (self.hidden_dim+2) * self.num_tokens
+            else:
+                flops += self.dim * self.hidden_dim * self.num_tokens
+                flops += self.dim * self.hidden_dim * self.num_tokens
+            
+        return flops
 
 class Attention(nn.Module):
     def __init__(self, dim, num_patches, heads = 8, dim_head = 64, dropout = 0., if_patch_attn=False, is_LSA=False, is_Coord=False):
@@ -176,6 +215,33 @@ class Attention(nn.Module):
         out = einsum('b h i j, b h j d -> b h i d', attn, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
         return self.to_out(out)
+    
+    def flops(self):
+        flops = 0
+        
+        if self.if_patch_attn:
+            if not self.is_Coord:
+                flops += self.dim * self.inner_dim * 3 * self.num_patches
+            else:    
+                flops += (self.dim+2) * self.inner_dim * 3 * self.num_patches
+                
+            flops += self.inner_dim * (self.num_patches**2)
+            flops += self.inner_dim * (self.num_patches**2)
+            flops += self.inner_dim * self.dim * self.num_patches
+        
+        else:
+            if not self.is_Coord:
+                flops += self.dim * self.inner_dim 
+                flops += self.dim * self.inner_dim * 2 * (self.num_patches+1)
+            else:
+                flops += self.dim * self.inner_dim 
+                flops += (self.dim+2) * self.inner_dim * 2 * (self.num_patches+1)
+                
+            flops += self.inner_dim * self.num_patches
+            flops += self.inner_dim * self.num_patches
+            flops += self.inner_dim * self.dim      
+        
+        return flops
 
 class Transformer(nn.Module):
     def __init__(self, dim, num_patches, depth, heads, dim_head, mlp_dim, dropout = 0., layer_dropout = 0., stochastic_depth=0., 
@@ -187,9 +253,10 @@ class Transformer(nn.Module):
         for ind in range(depth):
             self.layers.append(nn.ModuleList([
                 LayerScale(dim, PreNorm(dim, Attention(dim, num_patches, heads = heads, dim_head = dim_head, dropout = dropout, if_patch_attn=if_patch_attn, is_LSA=is_LSA, is_Coord=is_Coord)), depth = ind + 1),
-                LayerScale(dim, PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout, is_Coord=is_Coord)), depth = ind + 1)
+                LayerScale(dim, PreNorm(dim, FeedForward(dim, mlp_dim, dropout = dropout, is_Coord=is_Coord, if_patch_attn=if_patch_attn)), depth = ind + 1)
             ]))
         self.drop_path = DropPath(stochastic_depth) if stochastic_depth > 0 else nn.Identity()
+    
     def forward(self, x, context = None):
         layers = dropout_layers(self.layers, dropout = self.layer_dropout)
 
@@ -198,6 +265,15 @@ class Transformer(nn.Module):
             x = self.drop_path(attn(x, context = context)) + x
             x = self.drop_path(ff(x)) + x
         return x
+    
+    def flops(self):
+        flops = 0
+        
+        for (attn, ff) in self.layers:       
+            flops += attn.flops()
+            flops += ff.flops()
+        
+        return flops
     
 class CaiT(nn.Module):
     def __init__(
@@ -230,17 +306,16 @@ class CaiT(nn.Module):
                 Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = patch_size, p2 = patch_size),
                 nn.Linear(patch_dim, dim),
             )
+            self.pe_flops = patch_dim * dim * num_patches
         
         else:
-            self.to_patch_embedding = nn.Sequential(
-                ShiftedPatchTokenization(3, dim, patch_size, is_pe=True, is_Coord=is_Coord),
-            )
-        
-        
+            self.to_patch_embedding = ShiftedPatchTokenization(num_patches**2, 3, dim, patch_size, is_pe=True, is_Coord=is_Coord)
+
         image_height, image_width = pair(img_size)
         patch_height, patch_width = pair(patch_size)
         num_patches = (image_height // patch_height) * (image_width // patch_width)
 
+        self.is_SPT = is_SPT
         self.is_Coord = is_Coord
         if not is_Coord:
             self.pos_embedding = nn.Parameter(torch.randn(1, num_patches, dim))
@@ -273,7 +348,19 @@ class CaiT(nn.Module):
 
         return self.mlp_head(x[:, 0])
 
-
+    def flops(self):
+        flops = 0
+        
+        flops_pe = self.pe_flops if not self.is_SPT else self.to_patch_embedding.flops()
+        flops += flops_pe
+        
+        flops += self.patch_transformer.flops()   
+        flops += self.cls_transformer.flops()   
+        
+        flops += self.dim               # layer norm
+        flops += self.dim * self.num_classes    # linear
+        
+        return flops
 
 
     

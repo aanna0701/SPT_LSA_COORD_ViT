@@ -29,6 +29,11 @@ class PreNorm(nn.Module):
         self.fn = fn
     def forward(self, x, **kwargs):
         return self.fn(self.norm(x), ** kwargs)
+    def flops(self):
+        flops = 0        
+        flops += self.fn.flops()
+        flops += self.dim * (self.num_tokens+1)        
+        return flops   
  
 class FeedForward(nn.Module):
     def __init__(self, dim, num_patches, hidden_dim, dropout = 0., is_Coord=False):
@@ -56,6 +61,19 @@ class FeedForward(nn.Module):
             )            
     def forward(self, x):
         return self.net(x)
+    
+    def flops(self):
+        flops = 0
+        if not self.is_Coord:
+            flops += self.dim * self.hidden_dim * (self.num_patches+1)
+            flops += self.dim * self.hidden_dim * (self.num_patches+1)
+        else:
+            flops += (self.dim+2) * self.hidden_dim * self.num_patches
+            flops += self.dim * self.hidden_dim
+            flops += self.dim * (self.hidden_dim+2) * self.num_patches
+            flops += self.dim * self.hidden_dim
+        
+        return flops
 
 
 class Attention(nn.Module):
@@ -112,11 +130,22 @@ class Attention(nn.Module):
     
     def flops(self):
         flops = 0
-        if not self.is_coord:
+        if not self.is_Coord:
             flops += self.dim * self.inner_dim * 3 * (self.num_patches+1)
         else:
             flops += (self.dim+2) * self.inner_dim * 3 * self.num_patches  
             flops += self.dim * self.inner_dim * 3  
+            
+        flops += self.inner_dim * ((self.num_patches+1)**2)
+        flops += self.inner_dim * ((self.num_patches+1)**2)
+        
+        if not self.is_Coord:
+            flops += self.inner_dim * self.dim * (self.num_patches+1)
+        else:
+            flops += (self.inner_dim+2) * self.dim * self.num_patches
+            flops += self.inner_dim * self.dim
+        
+        return flops
 
 
 class Transformer(nn.Module):
@@ -138,6 +167,14 @@ class Transformer(nn.Module):
             x = self.drop_path(ff(x)) + x            
             self.scale[str(i)] = attn.fn.scale
         return x
+    
+    def flops(self):
+        flops = 0        
+        for (attn, ff) in self.layers:       
+            flops += attn.flops()
+            flops += ff.flops()
+        
+        return flops
 
 class ViT(nn.Module):
     def __init__(self, *, img_size, patch_size, num_classes, dim, depth, heads, mlp_dim_ratio, channels = 3, 
@@ -158,7 +195,7 @@ class ViT(nn.Module):
             )
             
         else:
-            self.to_patch_embedding = ShiftedPatchTokenization(3, self.dim, patch_size, is_pe=True, is_Coord=is_Coord)
+            self.to_patch_embedding = ShiftedPatchTokenization(self.num_patches, 3, self.dim, patch_size, is_pe=True, is_Coord=is_Coord)
         
         if not is_Coord:
             self.pos_embedding = nn.Parameter(torch.randn(1, self.num_patches + 1, self.dim))
@@ -192,5 +229,19 @@ class ViT(nn.Module):
         x = self.transformer(x)      
         
         return self.mlp_head(x[:, 0])
+    
+    def flops(self):
+        flops = 0
+        
+        if not self.is_Coord:
+            flops += self.num_patches * self.patch_dim * self.dim 
+        else:
+            flops += self.to_patch_embedding.flops()        
+                
+        flops += self.transformer.flops()           
+        flops += self.dim               # layer norm
+        flops += self.dim * self.num_classes    # linear
+        
+        return flops
 
 

@@ -6,19 +6,24 @@ import math
 from .Coord import CoordLinear
 
 class ShiftedPatchTokenization(nn.Module):
-    def __init__(self, in_dim, dim, merging_size=2, exist_class_t=False, is_pe=False, is_Coord=False):
+    def __init__(self, num_patches, in_dim, dim, merging_size=2, exist_class_t=False, is_pe=False, is_Coord=False):
         super().__init__()
-        
+        self.in_dim = in_dim
+        self.dim = dim
         self.exist_class_t = exist_class_t
+        self.is_Coord = is_Coord
+        self.num_patches = num_patches
+        self.num_patches = self.num_patches // (merging_size**2)
         
         self.patch_shifting = PatchShifting(merging_size)
         
         patch_dim = (in_dim*5) * (merging_size**2) 
+        self.patch_dim = patch_dim
         if exist_class_t:
             self.class_linear = nn.Linear(in_dim, dim)
 
         self.is_pe = is_pe
-        
+    
         self.merging = nn.Sequential(
             Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = merging_size, p2 = merging_size),
             nn.LayerNorm(patch_dim),
@@ -41,6 +46,24 @@ class ShiftedPatchTokenization(nn.Module):
             out = self.merging(out)    
         
         return out
+    
+    def flops(self):
+        flops = 0
+        
+        flops += self.num_patches * self.patch_dim
+        
+        if self.exist_class_t:
+            flops += self.in_dim * self._dim
+            
+        if self.is_Coord:
+            flops += self.num_patches * (self.patch_dim+2) * self.dim
+        else:
+            flops += self.num_patches * self.patch_dim * self.dim
+            
+        return flops
+        
+
+        
         
 class PatchShifting(nn.Module):
     def __init__(self, patch_size):

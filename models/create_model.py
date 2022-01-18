@@ -11,21 +11,21 @@ def create_model(img_size, n_classes, args):
         patch_size = 4 if img_size == 32 else 8
         model = ViT(img_size=img_size, patch_size = patch_size, num_classes=n_classes, dim=192, 
                     mlp_dim_ratio=2, depth=9, heads=12, dim_head=192//12,
-                    stochastic_depth=args.sd, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
+                    stochastic_depth=0.1, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
 
     elif args.model == 'cait_xxs24':       
         patch_size = 4 if img_size == 32 else 8
-        model = CaiT(img_size=img_size, patch_size = patch_size, num_classes=n_classes, stochastic_depth=args.sd, 
+        model = CaiT(img_size=img_size, patch_size = patch_size, num_classes=n_classes, stochastic_depth=0.1, 
                      is_LSA=args.is_LSA, is_SPT=args.is_SPT, is_Coord=args.is_Coord)
 
     elif args.model == 'cait_xs24':       
         patch_size = 4 if img_size == 32 else 8
-        model = CaiT(img_size=img_size, patch_size = patch_size, num_classes=n_classes, stochastic_depth=args.sd, dim=288,
+        model = CaiT(img_size=img_size, patch_size = patch_size, num_classes=n_classes, stochastic_depth=0.1, dim=288,
                      is_LSA=args.is_LSA, is_SPT=args.is_SPT, is_Coord=args.is_Coord)
 
     elif args.model == 'cait_xxs36':       
         patch_size = 4 if img_size == 32 else 8
-        model = CaiT(img_size=img_size, patch_size = patch_size, num_classes=n_classes, stochastic_depth=args.sd, depth=36,
+        model = CaiT(img_size=img_size, patch_size = patch_size, num_classes=n_classes, stochastic_depth=0.1, depth=36,
                      is_LSA=args.is_LSA, is_SPT=args.is_SPT, is_Coord=args.is_Coord)
         
     elif args.model == 'pit':
@@ -37,10 +37,10 @@ def create_model(img_size, n_classes, args):
         
         model = PiT(img_size=img_size, patch_size = patch_size, num_classes=n_classes, dim=args.channel, 
                     mlp_dim_ratio=2, depth=args.depth, heads=args.heads, dim_head=dim_head, 
-                    stochastic_depth=args.sd, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
+                    stochastic_depth=0.1, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
 
     elif args.model =='t2t':
-        model = T2T_ViT(img_size=img_size, num_classes=n_classes, drop_path_rate=args.sd, 
+        model = T2T_ViT(img_size=img_size, num_classes=n_classes, drop_path_rate=0.1, 
                         is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
         
     elif args.model =='swin_t':
@@ -51,7 +51,7 @@ def create_model(img_size, n_classes, args):
         embed_dim = 96
         patch_size = 2
             
-        model = SwinTransformer(img_size=img_size, window_size=window_size, drop_path_rate=args.sd, embed_dim=embed_dim,
+        model = SwinTransformer(img_size=img_size, window_size=window_size, drop_path_rate=0.1, embed_dim=embed_dim,
                                 patch_size=patch_size, mlp_ratio=mlp_ratio, depths=depths, num_heads=num_heads, num_classes=n_classes, 
                                 is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
         
@@ -63,7 +63,7 @@ def create_model(img_size, n_classes, args):
         embed_dim = 96
         patch_size = 2
             
-        model = SwinTransformer(img_size=img_size, window_size=window_size, drop_path_rate=args.sd, embed_dim=embed_dim,
+        model = SwinTransformer(img_size=img_size, window_size=window_size, drop_path_rate=0.1, embed_dim=embed_dim,
                                 patch_size=patch_size, mlp_ratio=mlp_ratio, depths=depths, num_heads=num_heads, num_classes=n_classes, 
                                 is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
         
@@ -75,7 +75,7 @@ def create_model(img_size, n_classes, args):
         embed_dim = 128
         patch_size = 2
             
-        model = SwinTransformer(img_size=img_size, window_size=window_size, drop_path_rate=args.sd, embed_dim=embed_dim,
+        model = SwinTransformer(img_size=img_size, window_size=window_size, drop_path_rate=0.1, embed_dim=embed_dim,
                                 patch_size=patch_size, mlp_ratio=mlp_ratio, depths=depths, num_heads=num_heads, num_classes=n_classes, 
                                 is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
         
@@ -88,7 +88,7 @@ def create_model(img_size, n_classes, args):
         embed_dim = 192
         patch_size = 2
             
-        model = SwinTransformer(img_size=img_size, window_size=window_size, drop_path_rate=args.sd, embed_dim=embed_dim,
+        model = SwinTransformer(img_size=img_size, window_size=window_size, drop_path_rate=0.1, embed_dim=embed_dim,
                                 patch_size=patch_size, mlp_ratio=mlp_ratio, depths=depths, num_heads=num_heads, num_classes=n_classes, 
                                 is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
         

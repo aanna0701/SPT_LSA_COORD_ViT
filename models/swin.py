@@ -85,6 +85,7 @@ class WindowAttention(nn.Module):
         head_dim = dim // num_heads
         self.scale = qk_scale or head_dim ** -0.5
         self.is_LSA = is_LSA
+        self.is_Coord = is_Coord
         if is_LSA:
             self.scale = nn.Parameter(self.scale*torch.ones(self.num_heads))
             self.mask = torch.eye((window_size[0]**2), (window_size[0]**2))
@@ -167,6 +168,24 @@ class WindowAttention(nn.Module):
     def extra_repr(self) -> str:
         return f'dim={self.dim}, window_size={self.window_size}, num_heads={self.num_heads}'
 
+    def flops(self, N):
+        # calculate flops for 1 window with token length of N
+        flops = 0
+        # qkv = self.qkv(x)
+        if not self.is_Coord:
+            flops += N * self.dim * 3 * self.dim
+        else:
+            flops += N * (self.dim * 3) * (self.dim+2)
+        # attn = (q @ k.transpose(-2, -1))
+        flops += self.num_heads * N * (self.dim // self.num_heads) * N
+        #  x = (attn @ v)
+        flops += self.num_heads * N * N * (self.dim // self.num_heads)
+        # x = self.proj(x)
+        if not self.is_Coord:
+            flops += N * self.dim * self.dim
+        else:
+            flops += N * (self.dim+2) * self.dim
+        return flops
 
 class SwinTransformerBlock(nn.Module):
     r""" Swin Transformer Block.
@@ -196,6 +215,7 @@ class SwinTransformerBlock(nn.Module):
         self.window_size = window_size
         self.shift_size = shift_size
         self.mlp_ratio = mlp_ratio
+        self.is_Coord = is_Coord
         if min(self.input_resolution) <= self.window_size:
             # if window size is larger than input resolution, we don't partition windows
             self.shift_size = 0
@@ -283,7 +303,23 @@ class SwinTransformerBlock(nn.Module):
         return f"dim={self.dim}, input_resolution={self.input_resolution}, num_heads={self.num_heads}, " \
                f"window_size={self.window_size}, shift_size={self.shift_size}, mlp_ratio={self.mlp_ratio}"
 
-
+    def flops(self):
+        flops = 0
+        H, W = self.input_resolution
+        # norm1
+        flops += self.dim * H * W
+        # W-MSA/SW-MSA
+        nW = H * W / self.window_size / self.window_size
+        flops += nW * self.attn.flops(self.window_size * self.window_size)
+        # mlp
+        if not self.is_Coord:
+            flops += 2 * H * W * self.dim * self.dim * self.mlp_ratio
+        else:    
+            flops += H * W * self.dim * (self.dim * self.mlp_ratio + 2)
+            flops += H * W * (self.dim+2) * self.dim * self.mlp_ratio
+        # norm2
+        flops += self.dim * H * W
+        return flops
 
 class PatchMerging(nn.Module):
     r""" Patch Merging Layer.
@@ -381,7 +417,7 @@ class BasicLayer(nn.Module):
             if not is_SPT:
                 self.downsample = PatchMerging(input_resolution, dim=dim, norm_layer=norm_layer)
             else:
-                self.downsample = ShiftedPatchTokenization(dim, dim*2, 2, is_Coord=is_Coord)
+                self.downsample = ShiftedPatchTokenization(input_resolution[0]*input_resolution[1], dim, dim*2, 2, is_Coord=is_Coord)
                     
         else:
             self.downsample = None
@@ -402,7 +438,13 @@ class BasicLayer(nn.Module):
     def extra_repr(self) -> str:
         return f"dim={self.dim}, input_resolution={self.input_resolution}, depth={self.depth}"
 
-
+    def flops(self):
+        flops = 0
+        for blk in self.blocks:
+            flops += blk.flops()
+        if self.downsample is not None:
+            flops += self.downsample.flops()
+        return flops
 
 class PatchEmbed(nn.Module):
     r""" Image to Patch Embedding
@@ -441,6 +483,13 @@ class PatchEmbed(nn.Module):
         if self.norm is not None:
             x = self.norm(x)
         return x
+
+    def flops(self):
+        Ho, Wo = self.patches_resolution
+        flops = Ho * Wo * self.embed_dim * self.in_chans * (self.patch_size[0] * self.patch_size[1])
+        if self.norm is not None:
+            flops += Ho * Wo * self.embed_dim
+        return flops
 
 class SwinTransformer(nn.Module):
     r""" Swin Transformer
@@ -493,7 +542,7 @@ class SwinTransformer(nn.Module):
             self.img_resolution = self.patch_embed.patches_resolution
 
         else:
-            self.patch_embed = ShiftedPatchTokenization(3, embed_dim, patch_size, is_pe=True, is_Coord=is_Coord)
+            self.patch_embed = ShiftedPatchTokenization(img_size**2, 3, embed_dim, patch_size, is_pe=True, is_Coord=is_Coord)
             self.img_resolution = (img_size//patch_size, img_size//patch_size)  
         
         # absolute position embedding
@@ -562,4 +611,11 @@ class SwinTransformer(nn.Module):
         x = self.head(x)
         return x
 
-    
+    def flops(self):
+        flops = 0
+        flops += self.patch_embed.flops()
+        for i, layer in enumerate(self.layers):
+            flops += layer.flops()
+        flops += self.num_features * self.img_resolution[0] * self.img_resolution[1] # layer norm
+        flops += self.num_features * self.num_classes   # mlp head
+        return flops
