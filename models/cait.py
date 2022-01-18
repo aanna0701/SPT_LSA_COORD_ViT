@@ -329,9 +329,6 @@ class CaiT(nn.Module):
         self.is_Coord = is_Coord
         if not is_Coord:
             self.pos_embedding = nn.Parameter(torch.randn(1, num_patches, dim))
-        else:
-            addcoords = AddCoords1D(img_size//patch_size, batch_size)
-            
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
 
         self.dropout = nn.Dropout(emb_dropout)
