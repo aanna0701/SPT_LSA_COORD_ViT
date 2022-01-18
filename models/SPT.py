@@ -53,7 +53,7 @@ class ShiftedPatchTokenization(nn.Module):
         flops += self.num_patches * self.patch_dim
         
         if self.exist_class_t:
-            flops += self.in_dim * self._dim
+            flops += self.in_dim * self.dim
             
         if self.is_Coord:
             flops += self.num_patches * (self.patch_dim+2) * self.dim
