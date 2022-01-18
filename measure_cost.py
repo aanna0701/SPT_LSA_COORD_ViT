@@ -597,7 +597,7 @@ def main(args):
         
         else:
             print(f'Model: {args.model}')
-            print('FLOPs: {}'.format(model.flops(), ","))
+            print('FLOPs: ', format(model.flops(), ","))
         
             
 if __name__ == '__main__':
