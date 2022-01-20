@@ -13,13 +13,13 @@ from torch import einsum
 from timm.models.layers import trunc_normal_
 import numpy as np
 from .SPT import PatchShifting
+from .Coord import CoordLinear
 
 """
 Take the standard Transformer as T2T Transformer
 """
 import torch.nn as nn
 from timm.models.layers import DropPath
-from .Coord import CoordLinear
 
 """
 Borrow from timm(https://github.com/rwightman/pytorch-image-models)
