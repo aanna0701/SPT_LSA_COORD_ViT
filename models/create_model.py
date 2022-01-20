@@ -111,6 +111,9 @@ def create_model(img_size, n_classes, args):
         
     elif args.model =='regnet_200mf':
         model = RegNetX_200MF(n_classes)
+
+    elif args.model =='regnetY_200mf':
+        model = RegNetY_200MF(n_classes)
         
     elif args.model =='regnet_400mf':
         model = RegNetX_400MF(n_classes)

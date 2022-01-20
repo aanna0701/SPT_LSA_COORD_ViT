@@ -118,6 +118,17 @@ def RegNetX_200MF(n_classes):
     }
     return RegNet(cfg, n_classes)
 
+def RegNetY_200MF(n_classes):
+    cfg = {
+        'depths': [1, 1, 4, 7],
+        'widths': [24, 56, 152, 368],
+        'strides': [1, 1, 2, 2],
+        'group_width': 8,
+        'bottleneck_ratio': 1,
+        'se_ratio': 0.25,
+    }
+    return RegNet(cfg, n_classes)
+
 
 def RegNetX_400MF(n_classes):
     cfg = {
