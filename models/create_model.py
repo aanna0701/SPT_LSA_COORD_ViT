@@ -7,6 +7,7 @@ from .regnet import *
 from .effiv2 import *
 from .resnet import resnet56, resnet110
 from .efficientnet import EfficientNetB0
+from .coatnet import *
 
 def create_model(img_size, n_classes, args):
     if args.model == 'vit':
@@ -61,6 +62,9 @@ def create_model(img_size, n_classes, args):
         model = SwinTransformer(img_size=img_size, window_size=window_size, drop_path_rate=0.1, embed_dim=embed_dim,
                                 patch_size=patch_size, mlp_ratio=mlp_ratio, depths=depths, num_heads=num_heads, num_classes=n_classes, 
                                 is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
+        
+    elif args.model =='coatnet':
+        model = coatnet_2(is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
         
     elif args.model =='swin_s':
         depths = [2, 18, 4] if img_size == 32 else [2, 2, 18, 2]
