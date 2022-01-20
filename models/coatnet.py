@@ -1,3 +1,4 @@
+from email.mime import image
 import torch
 import torch.nn as nn
 
@@ -206,17 +207,28 @@ class CoAtNet(nn.Module):
         super().__init__()
         ih, iw = image_size
         block = {'C': MBConv, 'T': Transformer}
-
-        self.s0 = self._make_layer(
-            conv_3x3_bn, in_channels if not is_SPT else in_channels*5, channels[0], num_blocks[0], (ih // 2, iw // 2))
-        self.s1 = self._make_layer(
-            block[block_types[0]], channels[0] if not is_SPT else channels[0]*5, channels[1], num_blocks[1], (ih // 4, iw // 4))
-        self.s2 = self._make_layer(
-            block[block_types[1]], channels[1] if not is_SPT else channels[1]*5, channels[2], num_blocks[2], (ih // 8, iw // 8))
-        self.s3 = self._make_layer(
-            block[block_types[2]], channels[2] if not is_SPT else channels[2]*5, channels[3], num_blocks[3], (ih // 16, iw // 16))
-        self.s4 = self._make_layer(
-            block[block_types[3]], channels[3] if not is_SPT else channels[3]*5, channels[4], num_blocks[4], (ih // 32, iw // 32))
+        self.image_size = image_size
+        if image_size == 32:
+            self.s0 = self._make_layer(
+                conv_3x3_bn, in_channels if not is_SPT else in_channels*5, channels[0], num_blocks[0], (ih, iw))
+            self.s1 = self._make_layer(
+                block[block_types[0]], channels[0] if not is_SPT else channels[0]*5, channels[1], num_blocks[1], (ih // 2, iw // 2))
+            self.s2 = nn.Identity()
+            self.s3 = self._make_layer(
+                block[block_types[2]], channels[1] if not is_SPT else channels[2]*5, channels[3], num_blocks[3], (ih // 4, iw // 4))
+            self.s4 = self._make_layer(
+                block[block_types[3]], channels[2] if not is_SPT else channels[3]*5, channels[4], num_blocks[4], (ih // 8, iw // 8))
+        else:
+            self.s0 = self._make_layer(
+                conv_3x3_bn, in_channels if not is_SPT else in_channels*5, channels[0], num_blocks[0], (ih, iw))
+            self.s1 = self._make_layer(
+                block[block_types[0]], channels[0] if not is_SPT else channels[0]*5, channels[1], num_blocks[1], (ih // 2, iw // 2))
+            self.s2 = self._make_layer(
+                block[block_types[1]], channels[0] if not is_SPT else channels[1]*5, channels[2], num_blocks[2], (ih // 4, iw // 4))
+            self.s3 = self._make_layer(
+                block[block_types[2]], channels[1] if not is_SPT else channels[2]*5, channels[3], num_blocks[3], (ih // 8, iw // 8))
+            self.s4 = self._make_layer(
+                block[block_types[3]], channels[2] if not is_SPT else channels[3]*5, channels[4], num_blocks[4], (ih // 16, iw // 16))
 
         self.pool = nn.AvgPool2d(ih // 32, 1)
         self.fc = nn.Linear(channels[-1], num_classes, bias=False)
@@ -227,7 +239,8 @@ class CoAtNet(nn.Module):
         x = self.s0(x)
         x = self.SPT(x)
         x = self.s1(x)
-        x = self.SPT(x)
+        if self.image_size > 32:
+            x = self.SPT(x) 
         x = self.s2(x)
         x = self.SPT(x)
         x = self.s3(x)
