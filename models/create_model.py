@@ -64,7 +64,7 @@ def create_model(img_size, n_classes, args):
                                 is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
         
     elif args.model =='coatnet':
-        model = coatnet_2(is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
+        model = coatnet_2(img_size=args.img_size, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
         
     elif args.model =='swin_s':
         depths = [2, 18, 4] if img_size == 32 else [2, 2, 18, 2]
