@@ -207,7 +207,7 @@ class CoAtNet(nn.Module):
         super().__init__()
         ih, iw = image_size
         block = {'C': MBConv, 'T': Transformer}
-        self.image_size = image_size
+        self.image_size = ih
         if image_size == 32:
             self.s0 = self._make_layer(
                 conv_3x3_bn, in_channels if not is_SPT else in_channels*5, channels[0], num_blocks[0], (ih, iw))
