@@ -8,8 +8,7 @@ from einops import rearrange
 from einops.layers.torch import Rearrange
 
 
-def conv_3x3_bn(inp, oup, image_size, downsample=False):
-    stride = 1
+def conv_3x3_bn(inp, oup, image_size, downsample=False, stride=2):
     return nn.Sequential(
         nn.Conv2d(inp, oup, 3, stride, 1, bias=False),
         nn.BatchNorm2d(oup),
@@ -226,7 +225,7 @@ class CoAtNet(nn.Module):
         self.is_Coord = is_Coord
         if ih == 32:
             self.s0 = self._make_layer(
-                conv_3x3_bn, in_channels, channels[0], num_blocks[0], (ih, iw))
+                conv_3x3_bn, in_channels, channels[0], num_blocks[0], (ih, iw), stride=1)
             ih//=2
             iw//=2
             self.s1 = self._make_layer(
@@ -277,12 +276,12 @@ class CoAtNet(nn.Module):
         x = self.fc(x)
         return x
 
-    def _make_layer(self, block, inp, oup, depth, image_size, is_transformer=False, is_last=False):
+    def _make_layer(self, block, inp, oup, depth, image_size, is_transformer=False, is_last=False, stride=2):
         layers = nn.ModuleList([])
         if not is_transformer:
             for i in range(depth):
                 if i == 0:
-                    layers.append(block(inp, oup, image_size, downsample=True))
+                    layers.append(block(inp, oup, image_size, downsample=True, stride=stride))
                 else:
                     layers.append(block(oup, oup, image_size))
         else:
