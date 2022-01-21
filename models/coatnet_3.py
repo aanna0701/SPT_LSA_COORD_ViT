@@ -11,7 +11,7 @@ from einops.layers.torch import Rearrange
 def conv_3x3_bn(inp, oup, image_size, downsample=False):
     # stride = 1 if downsample == False else 2
     return nn.Sequential(
-        nn.Conv2d(inp, oup, 3, 1 if (image_size[0] <= 32 or downsample == False) else 2, 1, bias=False),
+        nn.Conv2d(inp, oup, 3, 1 if (image_size[0] == 32 or downsample == False) else 2, 1, bias=False),
         nn.BatchNorm2d(oup),
         nn.GELU()
     )
@@ -68,7 +68,7 @@ class MBConv(nn.Module):
         hidden_dim = int(inp * expansion)
 
         if self.downsample:
-            self.pool = nn.MaxPool2d(3, 2, 1)
+            self.pool = nn.MaxPool2d(3, 2 if not image_size[0] == 32 else 1, 1)
             self.proj = nn.Conv2d(inp, oup, 1, 1, 0, bias=False)
 
         if expansion == 1:
@@ -228,7 +228,7 @@ class CoAtNet(nn.Module):
             self.s0 = self._make_layer(
                 conv_3x3_bn, in_channels, channels[0], num_blocks[0], (ih, iw))
             self.s1 = self._make_layer(
-                conv_3x3_bn, channels[0], channels[1], num_blocks[1], (ih, iw))
+                block[block_types[0]], channels[0], channels[1], num_blocks[1], (ih, iw))
             ih//=2
             iw//=2
             self.s2 = self._make_layer(
@@ -247,7 +247,7 @@ class CoAtNet(nn.Module):
             ih//=2
             iw//=2
             self.s1 = self._make_layer(
-                conv_3x3_bn, channels[0], channels[1], num_blocks[1], (ih, iw))
+                block[block_types[0]], channels[0], channels[1], num_blocks[1], (ih, iw))
             ih//=2
             iw//=2
             self.s2 = self._make_layer(
