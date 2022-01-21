@@ -179,7 +179,7 @@ class Attention(nn.Module):
 
 class Transformer(nn.Module):
     def __init__(self, inp, oup, image_size, heads=8, dim_head=32, downsample=False, dropout=0., 
-                 is_LSA=False, is_Coord=False):
+                 is_LSA=False, is_Coord=False, is_last=False):
         super().__init__()
         hidden_dim = int(inp * 4)
         
@@ -192,7 +192,7 @@ class Transformer(nn.Module):
             self.proj = nn.Conv2d(inp, oup, 1, 1, 0, bias=False)
 
         self.attn = Attention(inp, oup, image_size, heads, dim_head, dropout, is_LSA=is_LSA, is_Coord=is_Coord)
-        self.ff = FeedForward(oup, hidden_dim, dropout, is_Coord=is_Coord)
+        self.ff = FeedForward(oup, hidden_dim, dropout, is_Coord=is_Coord if not is_last else False)
 
         self.attn = nn.Sequential(
             Rearrange('b c ih iw -> b (ih iw) c'),
@@ -239,7 +239,7 @@ class CoAtNet(nn.Module):
             ih//=2
             iw//=2
             self.s4 = self._make_layer(
-                block[block_types[3]], channels[2] if not is_SPT else channels[2]*5, channels[3], num_blocks[3], (ih, iw), is_transformer=True)
+                block[block_types[3]], channels[2] if not is_SPT else channels[2]*5, channels[3], num_blocks[3], (ih, iw), is_transformer=True, is_last=True)
         else:
             self.s0 = self._make_layer(
                 conv_3x3_bn, in_channels if not is_SPT else in_channels*5, channels[0], num_blocks[0], (ih, iw))
@@ -258,7 +258,7 @@ class CoAtNet(nn.Module):
             ih//=2
             iw//=2
             self.s4 = self._make_layer(
-                block[block_types[3]], channels[3] if not is_SPT else channels[3]*5, channels[4], num_blocks[4], (ih, iw), is_transformer=True)
+                block[block_types[3]], channels[3] if not is_SPT else channels[3]*5, channels[4], num_blocks[4], (ih, iw), is_transformer=True, is_last=True)
 
         self.pool = nn.AvgPool2d(ih, 1)
         self.fc = nn.Linear(channels[-1], num_classes, bias=False)
@@ -281,7 +281,7 @@ class CoAtNet(nn.Module):
         x = self.fc(x)
         return x
 
-    def _make_layer(self, block, inp, oup, depth, image_size, is_transformer=False):
+    def _make_layer(self, block, inp, oup, depth, image_size, is_transformer=False, is_last=False):
         layers = nn.ModuleList([])
         if not is_transformer:
             for i in range(depth):
@@ -294,7 +294,7 @@ class CoAtNet(nn.Module):
                 if i == 0:
                     layers.append(block(inp, oup, image_size, downsample=True))
                 else:
-                    layers.append(block(oup, oup, image_size, is_LSA=self.is_LSA, is_Coord=self.is_Coord))
+                    layers.append(block(oup, oup, image_size, is_LSA=self.is_LSA, is_Coord=self.is_Coord, is_last = False if not (i == depth-1 and is_last) else True))
         return nn.Sequential(*layers)
 
 
