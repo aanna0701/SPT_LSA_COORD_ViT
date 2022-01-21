@@ -292,7 +292,7 @@ def coatnet_1(img_size, n_classes, is_LSA=False, is_SPT=False, is_Coord=False):
     else:
         num_blocks = [2, 6, 14, 2]           # L
         channels = [64, 192, 384, 768]      # D
-    return CoAtNet((224, 224), 3, num_blocks, channels, num_classes=n_classes, is_LSA=is_LSA, is_SPT=is_SPT, is_Coord=is_Coord)
+    return CoAtNet((img_size, img_size), 3, num_blocks, channels, num_classes=n_classes, is_LSA=is_LSA, is_SPT=is_SPT, is_Coord=is_Coord)
 
 
 def coatnet_2(img_size, n_classes, is_LSA=False, is_SPT=False, is_Coord=False):
@@ -312,7 +312,7 @@ def coatnet_3(img_size, n_classes, is_LSA=False, is_SPT=False, is_Coord=False):
     else:
         num_blocks = [2, 6, 14, 2]           # L
         channels = [192, 384, 768, 1536]   # D
-    return CoAtNet((224, 224), 3, num_blocks, channels, num_classes=n_classes, is_LSA=is_LSA, is_SPT=is_SPT, is_Coord=is_Coord)
+    return CoAtNet((img_size, img_size), 3, num_blocks, channels, num_classes=n_classes, is_LSA=is_LSA, is_SPT=is_SPT, is_Coord=is_Coord)
 
 
 def coatnet_4(img_size, n_classes, is_LSA=False, is_SPT=False, is_Coord=False):
@@ -322,7 +322,7 @@ def coatnet_4(img_size, n_classes, is_LSA=False, is_SPT=False, is_Coord=False):
     else:
         num_blocks = [2, 12, 28, 2]          # L
         channels = [192, 384, 768, 1536]   # D
-    return CoAtNet((224, 224), 3, num_blocks, channels, num_classes=n_classes, is_LSA=is_LSA, is_SPT=is_SPT, is_Coord=is_Coord)
+    return CoAtNet((img_size, img_size), 3, num_blocks, channels, num_classes=n_classes, is_LSA=is_LSA, is_SPT=is_SPT, is_Coord=is_Coord)
 
 
 def count_parameters(model):
