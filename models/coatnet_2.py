@@ -305,12 +305,12 @@ class CoAtNet(nn.Module):
         return flops
 
 def coatnet2_0(img_size, n_classes, is_LSA=False, is_SPT=False, is_Coord=False):
-    if img_size > 32:
-        num_blocks = [2, 2, 3, 5, 2]            # L
-        channels = [64, 96, 192, 384, 768]      # D
-    else:
-        num_blocks = [2, 3, 5, 2]            # L
-        channels = [64, 192, 384, 768]      # D
+    # if img_size > 32:
+    #     num_blocks = [2, 2, 3, 5, 2]            # L
+    #     channels = [64, 96, 192, 384, 768]      # D
+    # else:
+    num_blocks = [2, 3, 5, 2]            # L
+    channels = [64, 192, 384, 768]      # D
     return CoAtNet((img_size, img_size), 3, num_blocks, channels, num_classes=n_classes, is_LSA=is_LSA, is_SPT=is_SPT, is_Coord=is_Coord)
 
 
