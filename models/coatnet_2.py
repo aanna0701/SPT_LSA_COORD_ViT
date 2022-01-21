@@ -242,8 +242,8 @@ class CoAtNet(nn.Module):
         else:
             self.s0 = self._make_layer(
                 conv_3x3_bn, in_channels, channels[0], num_blocks[0], (ih, iw))
-            ih//=4
-            iw//=4
+            ih//=2
+            iw//=2
             self.s1 = self._make_layer(
                 block[block_types[0]], channels[0], channels[1], num_blocks[1], (ih, iw))
             ih//=2
