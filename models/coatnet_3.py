@@ -64,7 +64,7 @@ class MBConv(nn.Module):
     def __init__(self, inp, oup, image_size, downsample=False, expansion=4):
         super().__init__()
         self.downsample = downsample
-        stride = 1 if self.downsample == False else 2
+        stride = 1 if (self.downsample == False or image_size[0] == 32) else 2
         hidden_dim = int(inp * expansion)
 
         if self.downsample:
