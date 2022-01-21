@@ -46,13 +46,13 @@ class SE(nn.Module):
 
 
 class FeedForward(nn.Module):
-    def __init__(self, dim, hidden_dim, dropout=0.):
+    def __init__(self, dim, hidden_dim, dropout=0., is_Coord=False):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(dim, hidden_dim),
+            nn.Linear(dim, hidden_dim) if not is_Coord else CoordLinear(dim, hidden_dim, exist_cls_token=False),
             nn.GELU(),
             nn.Dropout(dropout),
-            nn.Linear(hidden_dim, dim),
+            nn.Linear(hidden_dim, dim)if not is_Coord else CoordLinear(hidden_dim, dim, exist_cls_token=False),
             nn.Dropout(dropout)
         )
 
@@ -110,7 +110,7 @@ class MBConv(nn.Module):
 
 
 class Attention(nn.Module):
-    def __init__(self, inp, oup, image_size, heads=8, dim_head=32, dropout=0.):
+    def __init__(self, inp, oup, image_size, heads=8, dim_head=32, dropout=0., is_LSA=False, is_Coord=False):
         super().__init__()
         inner_dim = dim_head * heads
         project_out = not (heads == 1 and dim_head == inp)
@@ -136,19 +136,32 @@ class Attention(nn.Module):
         self.register_buffer("relative_index", relative_index)
 
         self.attend = nn.Softmax(dim=-1)
-        self.to_qkv = nn.Linear(inp, inner_dim * 3, bias=False)
+        self.to_qkv = nn.Linear(inp, inner_dim * 3, bias=False) if not is_Coord else CoordLinear(inp, inner_dim * 3, bias=False, exist_cls_token=False)
 
         self.to_out = nn.Sequential(
-            nn.Linear(inner_dim, oup),
+            nn.Linear(inner_dim, oup) if not is_Coord else CoordLinear(inner_dim, oup, exist_cls_token=False),
             nn.Dropout(dropout)
         ) if project_out else nn.Identity()
+        
+        self.is_LSA = is_LSA
+        if self.is_LSA:
+            self.mask = torch.eye(self.ih**2, self.ih**2)
+            self.mask = torch.nonzero((self.mask == 1), as_tuple=False)
+            self.inf = float('-inf')
+            self.scale = nn.Parameter(self.scale*torch.ones(heads))
 
     def forward(self, x):
         qkv = self.to_qkv(x).chunk(3, dim=-1)
         q, k, v = map(lambda t: rearrange(
             t, 'b n (h d) -> b h n d', h=self.heads), qkv)
 
-        dots = torch.matmul(q, k.transpose(-1, -2)) * self.scale
+        if not self.is_LSA:
+            dots = torch.matmul(q, k.transpose(-1, -2)) * self.scale
+        else:                
+            scale = self.scale
+            dots = torch.matmul(q, k.transpose(-1, -2))
+            dots = torch.mul(dots, scale.unsqueeze(0).unsqueeze(-1).unsqueeze(-1).expand((x.size(0), self.heads, 1, 1)))
+             
 
         # Use "gather" for more efficiency on GPUs
         relative_bias = self.relative_bias_table.gather(
@@ -165,10 +178,11 @@ class Attention(nn.Module):
 
 
 class Transformer(nn.Module):
-    def __init__(self, inp, oup, image_size, heads=8, dim_head=32, downsample=False, dropout=0.):
+    def __init__(self, inp, oup, image_size, heads=8, dim_head=32, downsample=False, dropout=0., 
+                 is_LSA=False, is_Coord=False):
         super().__init__()
         hidden_dim = int(inp * 4)
-
+        
         self.ih, self.iw = image_size
         self.downsample = downsample
 
@@ -177,8 +191,8 @@ class Transformer(nn.Module):
             self.pool2 = nn.MaxPool2d(3, 2, 1)
             self.proj = nn.Conv2d(inp, oup, 1, 1, 0, bias=False)
 
-        self.attn = Attention(inp, oup, image_size, heads, dim_head, dropout)
-        self.ff = FeedForward(oup, hidden_dim, dropout)
+        self.attn = Attention(inp, oup, image_size, heads, dim_head, dropout, is_LSA=is_LSA, is_Coord=is_Coord)
+        self.ff = FeedForward(oup, hidden_dim, dropout, is_Coord=is_Coord)
 
         self.attn = nn.Sequential(
             Rearrange('b c ih iw -> b (ih iw) c'),
@@ -208,6 +222,8 @@ class CoAtNet(nn.Module):
         ih, iw = image_size
         block = {'C': MBConv, 'T': Transformer}
         self.image_size = ih
+        self.is_LSA = is_LSA
+        self.is_Coord = is_Coord
         if ih == 32:
             self.s0 = self._make_layer(
                 conv_3x3_bn, in_channels if not is_SPT else in_channels*5, channels[0], num_blocks[0], (ih, iw))
@@ -219,11 +235,11 @@ class CoAtNet(nn.Module):
             iw//=2
             self.s2 = nn.Identity()
             self.s3 = self._make_layer(
-                block[block_types[2]], channels[1] if not is_SPT else channels[1]*5, channels[2], num_blocks[2], (ih, iw))
+                block[block_types[2]], channels[1] if not is_SPT else channels[1]*5, channels[2], num_blocks[2], (ih, iw), is_transformer=True)
             ih//=2
             iw//=2
             self.s4 = self._make_layer(
-                block[block_types[3]], channels[2] if not is_SPT else channels[2]*5, channels[3], num_blocks[3], (ih, iw))
+                block[block_types[3]], channels[2] if not is_SPT else channels[2]*5, channels[3], num_blocks[3], (ih, iw), is_transformer=True)
         else:
             self.s0 = self._make_layer(
                 conv_3x3_bn, in_channels if not is_SPT else in_channels*5, channels[0], num_blocks[0], (ih, iw))
@@ -238,11 +254,11 @@ class CoAtNet(nn.Module):
             ih//=2
             iw//=2
             self.s3 = self._make_layer(
-                block[block_types[2]], channels[2] if not is_SPT else channels[2]*5, channels[3], num_blocks[3], (ih, iw))
+                block[block_types[2]], channels[2] if not is_SPT else channels[2]*5, channels[3], num_blocks[3], (ih, iw), is_transformer=True)
             ih//=2
             iw//=2
             self.s4 = self._make_layer(
-                block[block_types[3]], channels[3] if not is_SPT else channels[3]*5, channels[4], num_blocks[4], (ih, iw))
+                block[block_types[3]], channels[3] if not is_SPT else channels[3]*5, channels[4], num_blocks[4], (ih, iw), is_transformer=True)
 
         self.pool = nn.AvgPool2d(ih, 1)
         self.fc = nn.Linear(channels[-1], num_classes, bias=False)
@@ -265,13 +281,20 @@ class CoAtNet(nn.Module):
         x = self.fc(x)
         return x
 
-    def _make_layer(self, block, inp, oup, depth, image_size):
+    def _make_layer(self, block, inp, oup, depth, image_size, is_transformer=False):
         layers = nn.ModuleList([])
-        for i in range(depth):
-            if i == 0:
-                layers.append(block(inp, oup, image_size, downsample=True))
-            else:
-                layers.append(block(oup, oup, image_size))
+        if not is_transformer:
+            for i in range(depth):
+                if i == 0:
+                    layers.append(block(inp, oup, image_size, downsample=True))
+                else:
+                    layers.append(block(oup, oup, image_size))
+        else:
+            for i in range(depth):
+                if i == 0:
+                    layers.append(block(inp, oup, image_size, downsample=True))
+                else:
+                    layers.append(block(oup, oup, image_size, is_LSA=self.is_LSA, is_Coord=self.is_Coord))
         return nn.Sequential(*layers)
 
 
