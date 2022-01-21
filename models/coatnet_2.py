@@ -10,7 +10,7 @@ from einops.layers.torch import Rearrange
 
 def conv_3x3_bn(inp, oup, image_size, downsample=False):
     return nn.Sequential(
-        nn.Conv2d(inp, oup, 3, 1 if image_size == 32 else 2, 1, bias=False),
+        nn.Conv2d(inp, oup, 3, 1 if image_size[0] == 32 else 2, 1, bias=False),
         nn.BatchNorm2d(oup),
         nn.GELU()
     )
@@ -242,22 +242,19 @@ class CoAtNet(nn.Module):
         else:
             self.s0 = self._make_layer(
                 conv_3x3_bn, in_channels, channels[0], num_blocks[0], (ih, iw))
-            ih//=2
-            iw//=2
+            ih//=4
+            iw//=4
             self.s1 = self._make_layer(
                 block[block_types[0]], channels[0], channels[1], num_blocks[1], (ih, iw))
             ih//=2
             iw//=2
-            self.s2 = self._make_layer(
-                block[block_types[1]], channels[1], channels[2], num_blocks[2], (ih, iw))
-            ih//=2
-            iw//=2
+            self.s2 = nn.Identity()
             self.s3 = self._make_layer(
-                block[block_types[2]], channels[2] if not is_SPT else channels[2]*5, channels[3], num_blocks[3], (ih, iw), is_transformer=True)
+                block[block_types[2]], channels[1] if not is_SPT else channels[1]*5, channels[2], num_blocks[2], (ih, iw), is_transformer=True)
             ih//=2
             iw//=2
             self.s4 = self._make_layer(
-                block[block_types[3]], channels[3] if not is_SPT else channels[3]*5, channels[4], num_blocks[4], (ih, iw), is_transformer=True, is_last=True)
+                block[block_types[3]], channels[2] if not is_SPT else channels[2]*5, channels[3], num_blocks[3], (ih, iw), is_transformer=True, is_last=True)
 
         self.pool = nn.AvgPool2d(ih, 1)
         self.fc = nn.Linear(channels[-1], num_classes, bias=False)
