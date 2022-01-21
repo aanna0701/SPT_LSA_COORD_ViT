@@ -63,8 +63,14 @@ def create_model(img_size, n_classes, args):
                                 patch_size=patch_size, mlp_ratio=mlp_ratio, depths=depths, num_heads=num_heads, num_classes=n_classes, 
                                 is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
         
-    elif args.model =='coatnet':
+    elif args.model =='coatnet_0':
+        model = coatnet_0(img_size=img_size, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
+    elif args.model =='coatnet_1':
+        model = coatnet_1(img_size=img_size, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
+    elif args.model =='coatnet_2':
         model = coatnet_2(img_size=img_size, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
+    elif args.model =='coatnet_3':
+        model = coatnet_3(img_size=img_size, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
         
     elif args.model =='swin_s':
         depths = [2, 18, 4] if img_size == 32 else [2, 2, 18, 2]
