@@ -8,6 +8,7 @@ from .effiv2 import *
 from .resnet import resnet56, resnet110
 from .efficientnet import EfficientNetB0
 from .coatnet import *
+from .coatnet_2 import coatnet2_0
 
 def create_model(img_size, n_classes, args):
     if args.model == 'vit':
@@ -71,6 +72,9 @@ def create_model(img_size, n_classes, args):
         model = coatnet_2(img_size=img_size, n_classes=n_classes, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
     elif args.model =='coatnet_3':
         model = coatnet_3(img_size=img_size, n_classes=n_classes, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
+    
+    elif args.model =='coatnet2_0':
+        model = coatnet2_0(img_size=img_size, n_classes=n_classes, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
         
     elif args.model =='swin_s':
         depths = [2, 18, 4] if img_size == 32 else [2, 2, 18, 2]
