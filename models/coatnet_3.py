@@ -227,35 +227,39 @@ class CoAtNet(nn.Module):
         if ih == 32:
             self.s0 = self._make_layer(
                 conv_3x3_bn, in_channels, channels[0], num_blocks[0], (ih, iw))
-            ih//=2
-            iw//=2
             self.s1 = self._make_layer(
-                block[block_types[0]], channels[0], channels[1], num_blocks[1], (ih, iw))
+                conv_3x3_bn, channels[0], channels[1], num_blocks[1], (ih, iw))
             ih//=2
             iw//=2
-            self.s2 = nn.Identity()
+            self.s2 = self._make_layer(
+                block[block_types[1]], channels[1], channels[2], num_blocks[2], (ih, iw))
+            ih//=2
+            iw//=2
             self.s3 = self._make_layer(
-                block[block_types[2]], channels[1] if not is_SPT else channels[1]*5, channels[2], num_blocks[2], (ih, iw), is_transformer=True)
+                block[block_types[2]], channels[2] if not is_SPT else channels[3]*5, channels[3], num_blocks[3], (ih, iw), is_transformer=True)
             ih//=2
             iw//=2
             self.s4 = self._make_layer(
-                block[block_types[3]], channels[2] if not is_SPT else channels[2]*5, channels[3], num_blocks[3], (ih, iw), is_transformer=True, is_last=True)
+                block[block_types[3]], channels[3] if not is_SPT else channels[4]*5, channels[4], num_blocks[4], (ih, iw), is_transformer=True, is_last=True)
         else:
             self.s0 = self._make_layer(
                 conv_3x3_bn, in_channels, channels[0], num_blocks[0], (ih, iw))
-            ih//=4
-            iw//=4
-            self.s1 = self._make_layer(
-                block[block_types[0]], channels[0], channels[1], num_blocks[1], (ih, iw))
             ih//=2
             iw//=2
-            self.s2 = nn.Identity()
+            self.s1 = self._make_layer(
+                conv_3x3_bn, channels[0], channels[1], num_blocks[1], (ih, iw))
+            ih//=2
+            iw//=2
+            self.s2 = self._make_layer(
+                block[block_types[1]], channels[1], channels[2], num_blocks[2], (ih, iw))
+            ih//=2
+            iw//=2
             self.s3 = self._make_layer(
-                block[block_types[2]], channels[1] if not is_SPT else channels[1]*5, channels[2], num_blocks[2], (ih, iw), is_transformer=True)
+                block[block_types[2]], channels[2] if not is_SPT else channels[2]*5, channels[3], num_blocks[3], (ih, iw), is_transformer=True)
             ih//=2
             iw//=2
             self.s4 = self._make_layer(
-                block[block_types[3]], channels[2] if not is_SPT else channels[2]*5, channels[3], num_blocks[3], (ih, iw), is_transformer=True, is_last=True)
+                block[block_types[3]], channels[3] if not is_SPT else channels[3]*5, channels[4], num_blocks[4], (ih, iw), is_transformer=True, is_last=True)
 
         self.pool = nn.AvgPool2d(ih, 1)
         self.fc = nn.Linear(channels[-1], num_classes, bias=False)
@@ -301,13 +305,10 @@ class CoAtNet(nn.Module):
         
         return flops
 
-def coatnet2_0(img_size, n_classes, is_LSA=False, is_SPT=False, is_Coord=False):
+def coatnet3_0(img_size, n_classes, is_LSA=False, is_SPT=False, is_Coord=False):
     # if img_size > 32:
-    #     num_blocks = [2, 2, 3, 5, 2]            # L
-    #     channels = [64, 96, 192, 384, 768]      # D
-    # else:
-    num_blocks = [2, 3, 5, 2]            # L
-    channels = [64, 192, 384, 768]      # D
+    num_blocks = [2, 2, 3, 5, 2]            # L
+    channels = [64, 96, 192, 384, 768]      # D
     return CoAtNet((img_size, img_size), 3, num_blocks, channels, num_classes=n_classes, is_LSA=is_LSA, is_SPT=is_SPT, is_Coord=is_Coord)
 
 
