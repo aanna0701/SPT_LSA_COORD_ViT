@@ -9,8 +9,9 @@ from einops.layers.torch import Rearrange
 
 
 def conv_3x3_bn(inp, oup, image_size, downsample=False):
+    # stride = 1 if downsample == False else 2
     return nn.Sequential(
-        nn.Conv2d(inp, oup, 3, 1 if image_size[0] == 32 else 2, 1, bias=False),
+        nn.Conv2d(inp, oup, 3, 1 if (image_size[0] == 32 or downsample == False) else 2, 1, bias=False),
         nn.BatchNorm2d(oup),
         nn.GELU()
     )
