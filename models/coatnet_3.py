@@ -266,8 +266,11 @@ class CoAtNet(nn.Module):
         self.SPT = PatchShifting(2) if is_SPT else nn.Identity()
 
     def forward(self, x):
+        x = self.SPT(x)
         x = self.s0(x)
-        x = self.s1(x) 
+        x = self.SPT(x)
+        x = self.s1(x)
+        x = self.SPT(x)
         x = self.s2(x)
         x = self.SPT(x)
         x = self.s3(x)
