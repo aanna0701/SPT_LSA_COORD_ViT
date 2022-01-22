@@ -226,13 +226,13 @@ class CoAtNet(nn.Module):
         self.is_Coord = is_Coord
         if ih == 32:
             self.s0 = self._make_layer(
-                conv_3x3_bn, in_channels, channels[0], num_blocks[0], (ih, iw))
+                conv_3x3_bn, in_channels if not is_SPT else in_channels*5, channels[0], num_blocks[0], (ih, iw))
             self.s1 = self._make_layer(
-                block[block_types[0]], channels[0], channels[1], num_blocks[1], (ih, iw))
+                block[block_types[0]], channels[0] if not is_SPT else channels[0]*5, channels[1], num_blocks[1], (ih, iw))
             ih//=2
             iw//=2
             self.s2 = self._make_layer(
-                block[block_types[1]], channels[1], channels[2], num_blocks[2], (ih, iw))
+                block[block_types[1]], channels[1] if not is_SPT else channels[1]*5, channels[2], num_blocks[2], (ih, iw))
             ih//=2
             iw//=2
             self.s3 = self._make_layer(
@@ -243,15 +243,15 @@ class CoAtNet(nn.Module):
                 block[block_types[3]], channels[3] if not is_SPT else channels[3]*5, channels[4], num_blocks[4], (ih, iw), is_transformer=True, is_last=True)
         else:
             self.s0 = self._make_layer(
-                conv_3x3_bn, in_channels, channels[0], num_blocks[0], (ih, iw))
+                conv_3x3_bn, in_channels if not is_SPT else in_channels*5, channels[0], num_blocks[0], (ih, iw))
             ih//=2
             iw//=2
             self.s1 = self._make_layer(
-                block[block_types[0]], channels[0], channels[1], num_blocks[1], (ih, iw))
+                block[block_types[0]], channels[0] if not is_SPT else channels[0]*5, channels[1], num_blocks[1], (ih, iw))
             ih//=2
             iw//=2
             self.s2 = self._make_layer(
-                block[block_types[1]], channels[1], channels[2], num_blocks[2], (ih, iw))
+                block[block_types[1]], channels[1] if not is_SPT else channels[1]*5, channels[2], num_blocks[2], (ih, iw))
             ih//=2
             iw//=2
             self.s3 = self._make_layer(
