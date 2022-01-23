@@ -11,7 +11,9 @@ from einops.layers.torch import Rearrange
 def conv_3x3_bn(inp, oup, image_size, downsample=False, is_Coord=False):
     # stride = 1 if downsample == False else 2
     return nn.Sequential(
-        nn.Conv2d(inp, oup, 3, 1 if (image_size[0] >= 32 or downsample == False) else 2, 1, bias=False),
+        PatchShifting(2) if (is_Coord and downsample) else nn.Identity(),
+        # nn.Conv2d(inp, oup, 3, stride, 1, bias=False),
+        nn.Conv2d(inp, oup, 3, 2 if downsample and image_size[0] > 32 else 1, 1, bias=False),
         nn.BatchNorm2d(oup),
         nn.GELU()
     )
@@ -64,7 +66,7 @@ class MBConv(nn.Module):
     def __init__(self, inp, oup, image_size, downsample=False, expansion=4, is_Coord=False):
         super().__init__()
         self.downsample = downsample
-        stride = 1 if (self.downsample == False or image_size[0] == 32) else 2
+        stride = 1 if self.downsample == False else 2
         hidden_dim = int(inp * expansion)
 
         if self.downsample:
@@ -230,7 +232,9 @@ class CoAtNet(nn.Module):
         self.is_Coord = is_Coord
         if ih == 32:
             self.s0 = self._make_layer(
-                conv_3x3_bn, in_channels, channels[0], num_blocks[0], (ih, iw))
+                conv_3x3_bn, in_channels if not is_SPT else in_channels*5, channels[0], num_blocks[0], (ih, iw), is_Coord=is_Coord)
+            ih//=2
+            iw//=2
             self.s1 = self._make_layer(
                 block[block_types[0]], channels[0] if not is_SPT else channels[0]*5, channels[1], num_blocks[1], (ih, iw), is_Coord=is_Coord)
             ih//=2
@@ -246,6 +250,8 @@ class CoAtNet(nn.Module):
             self.s4 = self._make_layer(
                 block[block_types[3]], channels[3] if not is_SPT else channels[3]*5, channels[4], num_blocks[4], (ih, iw), is_transformer=True, is_last=True, is_Coord=is_Coord)
         else:
+            ih//=2
+            iw//=2
             self.s0 = self._make_layer(
                 conv_3x3_bn, in_channels if not is_SPT else in_channels*5, channels[0], num_blocks[0], (ih, iw), is_Coord=is_Coord)
             ih//=2
