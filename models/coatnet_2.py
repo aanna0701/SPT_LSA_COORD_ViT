@@ -72,7 +72,7 @@ class MBConv(nn.Module):
 
         if self.downsample:
             self.SPT = PatchShifting(2) if is_Coord else nn.Identity()
-            self.pool = nn.MaxPool2d(3, 2 if not image_size[0] == 32 else 1, 1)
+            self.pool = nn.MaxPool2d(3, stride, 1)
             self.proj = nn.Conv2d(inp, oup, 1, 1, 0, bias=False)
 
         if expansion == 1:
