@@ -7,6 +7,7 @@ from .Coord import CoordLinear
 from einops import rearrange
 from einops.layers.torch import Rearrange
 
+POOL = False
 
 def conv_3x3_bn(inp, oup, image_size, downsample=False, is_Coord=False):
     # stride = 1 if downsample == False else 2
@@ -65,9 +66,12 @@ class FeedForward(nn.Module):
 class MBConv(nn.Module):
     def __init__(self, inp, oup, image_size, downsample=False, expansion=4, is_Coord=False):
         super().__init__()
+        global POOL
         self.downsample = downsample
+        if image_size[0] > 32 and self.downsample:
+            POOL = True
         # stride = 1 if self.downsample == False else 2
-        stride = 1 if (self.downsample == False or image_size[0] == 32) else 2
+        stride = 2 if downsample and POOL else 1
         hidden_dim = int(inp * expansion)
 
         if self.downsample:
@@ -226,6 +230,7 @@ class CoAtNet(nn.Module):
     def __init__(self, image_size, in_channels, num_blocks, channels, num_classes=100, block_types=['C', 'C', 'T', 'T'],
                  is_LSA=False, is_SPT=False, is_Coord=False):
         super().__init__()
+        global POOL
         ih, iw = image_size
         block = {'C': MBConv, 'T': Transformer}
         self.image_size = ih
@@ -236,6 +241,7 @@ class CoAtNet(nn.Module):
                 conv_3x3_bn, in_channels if not is_SPT else in_channels*5, channels[0], num_blocks[0], (ih, iw), is_Coord=is_Coord)
             self.s1 = self._make_layer(
                 block[block_types[0]], channels[0] if not is_SPT else channels[0]*5, channels[1], num_blocks[1], (ih, iw), is_Coord=is_Coord)
+            POOL = True
             ih//=2
             iw//=2
             self.s2 = self._make_layer(
@@ -251,6 +257,7 @@ class CoAtNet(nn.Module):
         else:
             self.s0 = self._make_layer(
                 conv_3x3_bn, in_channels if not is_SPT else in_channels*5, channels[0], num_blocks[0], (ih, iw), is_Coord=is_Coord)
+            POOL = True
             ih//=2
             iw//=2
             self.s1 = self._make_layer(
@@ -273,9 +280,13 @@ class CoAtNet(nn.Module):
 
     def forward(self, x):
         x = self.s0(x)
+        print(x.shape)
         x = self.s1(x)
+        print(x.shape)
         x = self.s2(x)
+        print(x.shape)
         x = self.s3(x)
+        print(x.shape)
         x = self.s4(x)
 
         x = self.pool(x).view(-1, x.shape[1])
