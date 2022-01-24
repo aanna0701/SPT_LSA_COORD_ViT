@@ -283,7 +283,6 @@ class CoAtNet(nn.Module):
         x = self.s1(x)
         x = self.s2(x)
         x = self.s3(x)
-        print(x.shape)
         x = self.s4(x)
 
         x = self.pool(x).view(-1, x.shape[1])
