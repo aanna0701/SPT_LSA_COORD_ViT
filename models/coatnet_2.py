@@ -280,11 +280,8 @@ class CoAtNet(nn.Module):
 
     def forward(self, x):
         x = self.s0(x)
-        print(x.shape)
         x = self.s1(x)
-        print(x.shape)
         x = self.s2(x)
-        print(x.shape)
         x = self.s3(x)
         print(x.shape)
         x = self.s4(x)
