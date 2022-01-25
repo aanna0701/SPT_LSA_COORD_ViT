@@ -8,7 +8,7 @@ from .effiv2 import *
 from .resnet import resnet56, resnet110
 from .efficientnet import EfficientNetB0
 from .coatnet import *
-from .coatnet_2 import coatnet2_0
+from .coatnet_2 import coatnet2_0, coatnet2_1
 from .coatnet_3 import coatnet3_0
 
 def create_model(img_size, n_classes, args):
