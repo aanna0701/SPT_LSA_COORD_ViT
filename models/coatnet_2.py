@@ -226,7 +226,7 @@ class Transformer(nn.Module):
                 x = self.proj(self.pool1(x)) + self.attn(self.pool2(x))
             else:
                 x = self.SPT(x)
-                x = self.proj(x) + self.attn(x)
+                x = self.proj(self.pool1(x)) + self.attn(self.pool2(x))
         else:
             x = x + self.attn(x)
         x = x + self.ff(x)
