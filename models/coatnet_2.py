@@ -199,10 +199,11 @@ class Transformer(nn.Module):
                 self.pool2 = nn.MaxPool2d(3, 2, 1)
                 self.proj = nn.Conv2d(inp, oup, 1, 1, 0, bias=False)     
             else:
+                inp *= 5
                 self.SPT = PatchShifting(2)
                 self.pool1 = nn.MaxPool2d(3, 2, 1)
                 self.pool2 = nn.MaxPool2d(3, 2, 1)
-                self.proj = nn.Conv2d(inp*5, oup, 1, 1, 0, bias=False)     
+                self.proj = nn.Conv2d(inp, oup, 1, 1, 0, bias=False)     
 
         self.attn = Attention(inp, oup, image_size, heads, dim_head, dropout, is_LSA=is_LSA, is_Coord=is_Coord)
         self.ff = FeedForward(oup, hidden_dim, dropout, is_Coord=is_Coord if not is_last else False)
