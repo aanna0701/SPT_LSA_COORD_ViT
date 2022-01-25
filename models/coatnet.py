@@ -221,7 +221,6 @@ class Transformer(nn.Module):
     def forward(self, x):
         if self.downsample:
             if not self.is_SPT:
-                x = self.SPT(x)
                 x = self.proj(self.pool1(x)) + self.attn(self.pool2(x))
             else:
                 x = self.rearrange(self.pool(x))
@@ -259,7 +258,7 @@ class CoAtNet(nn.Module):
             ih//=2
             iw//=2
             self.s4 = self._make_layer(
-                block[block_types[3]], channels[3], channels[4], num_blocks[4], (ih, iw), is_transformer=True, is_last=True, is_Coord=is_Coord)
+                block[block_types[3]], channels[3], channels[4], num_blocks[4], (ih, iw), is_transformer=True, is_last=True, is_Coord=is_Coord, is_SPT=is_SPT)
         else:
             self.s0 = self._make_layer(
                 conv_3x3_bn, in_channels if not is_SPT else in_channels*5, channels[0], num_blocks[0], (ih, iw), is_Coord=is_Coord)
@@ -275,11 +274,11 @@ class CoAtNet(nn.Module):
             ih//=2
             iw//=2
             self.s3 = self._make_layer(
-                block[block_types[2]], channels[2], channels[3], num_blocks[3], (ih, iw), is_transformer=True)
+                block[block_types[2]], channels[2], channels[3], num_blocks[3], (ih, iw), is_transformer=True, is_Coord=is_Coord)
             ih//=2
             iw//=2
             self.s4 = self._make_layer(
-                block[block_types[3]], channels[3], channels[4], num_blocks[4], (ih, iw), is_transformer=True, is_last=True, is_Coord=is_Coord)
+                block[block_types[3]], channels[3], channels[4], num_blocks[4], (ih, iw), is_transformer=True, is_last=True, is_Coord=is_Coord, is_SPT=is_SPT)
 
         self.pool = nn.AvgPool2d(ih, 1)
         self.fc = nn.Linear(channels[-1], num_classes, bias=False)
