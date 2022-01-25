@@ -259,11 +259,11 @@ class CoAtNet(nn.Module):
             ih//=2
             iw//=2
             self.s1 = self._make_layer(
-                block[block_types[0]], channels[0] if not is_SPT else channels[0]*5, channels[1], num_blocks[1], (ih, iw), is_Coord=is_Coord)
+                block[block_types[0]], channels[0], channels[1], num_blocks[1], (ih, iw))
             ih//=2
             iw//=2
             self.s2 = self._make_layer(
-                block[block_types[1]], channels[1] if not is_SPT else channels[1]*5, channels[2], num_blocks[2], (ih, iw), is_Coord=is_Coord)
+                block[block_types[1]], channels[1], channels[2], num_blocks[2], (ih, iw))
             ih//=2
             iw//=2
             self.s3 = self._make_layer(
