@@ -64,7 +64,7 @@ class FeedForward(nn.Module):
 
 
 class MBConv(nn.Module):
-    def __init__(self, inp, oup, image_size, downsample=False, expansion=4, is_Coord=False):
+    def __init__(self, inp, oup, image_size, downsample=False, expansion=2):
         super().__init__()
         global POOL
         self.downsample = downsample
@@ -75,7 +75,6 @@ class MBConv(nn.Module):
         hidden_dim = int(inp * expansion)
 
         if self.downsample:
-            self.SPT = PatchShifting(2) if is_Coord else nn.Identity()
             self.pool = nn.MaxPool2d(3, stride, 1)
             self.proj = nn.Conv2d(inp, oup, 1, 1, 0, bias=False)
 
@@ -112,7 +111,6 @@ class MBConv(nn.Module):
 
     def forward(self, x):
         if self.downsample:
-            x = self.SPT(x)
             return self.proj(self.pool(x)) + self.conv(x)
         else:
             return x + self.conv(x)
@@ -190,7 +188,7 @@ class Transformer(nn.Module):
     def __init__(self, inp, oup, image_size, heads=8, dim_head=32, downsample=False, dropout=0., 
                  is_LSA=False, is_Coord=False, is_last=False):
         super().__init__()
-        hidden_dim = int(inp * 4)
+        hidden_dim = int(inp * 2)
         
         self.ih, self.iw = image_size
         self.downsample = downsample
@@ -240,12 +238,12 @@ class CoAtNet(nn.Module):
             self.s0 = self._make_layer(
                 conv_3x3_bn, in_channels if not is_SPT else in_channels*5, channels[0], num_blocks[0], (ih, iw), is_Coord=is_Coord)
             self.s1 = self._make_layer(
-                block[block_types[0]], channels[0] if not is_SPT else channels[0]*5, channels[1], num_blocks[1], (ih, iw), is_Coord=is_Coord)
+                block[block_types[0]], channels[0], channels[1], num_blocks[1], (ih, iw))
             POOL = True
             ih//=2
             iw//=2
             self.s2 = self._make_layer(
-                block[block_types[1]], channels[1] if not is_SPT else channels[1]*5, channels[2], num_blocks[2], (ih, iw), is_Coord=is_Coord)
+                block[block_types[1]], channels[1], channels[2], num_blocks[2], (ih, iw))
             ih//=2
             iw//=2
             self.s3 = self._make_layer(
