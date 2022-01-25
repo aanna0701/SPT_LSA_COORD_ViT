@@ -9,10 +9,10 @@ from einops.layers.torch import Rearrange
 
 POOL = False
 
-def conv_3x3_bn(inp, oup, image_size, downsample=False, is_Coord=False):
+def conv_3x3_bn(inp, oup, image_size, downsample=False, is_Coord=False, is_SPT=False):
     # stride = 1 if downsample == False else 2
     return nn.Sequential(
-        PatchShifting(2) if (is_Coord and downsample) else nn.Identity(),
+        PatchShifting(2) if (is_SPT and downsample) else nn.Identity(),
         # nn.Conv2d(inp, oup, 3, stride, 1, bias=False),
         nn.Conv2d(inp, oup, 3, 1, 1, bias=False),
         nn.BatchNorm2d(oup),
@@ -64,7 +64,7 @@ class FeedForward(nn.Module):
 
 
 class MBConv(nn.Module):
-    def __init__(self, inp, oup, image_size, downsample=False, expansion=2, is_Coord=False):
+    def __init__(self, inp, oup, image_size, downsample=False, expansion=2, is_Coord=False, is_SPT=False):
         super().__init__()
         global POOL
         self.downsample = downsample
@@ -75,7 +75,7 @@ class MBConv(nn.Module):
         hidden_dim = int(inp * expansion)
 
         if self.downsample:
-            self.SPT = PatchShifting(2) if is_Coord else nn.Identity()
+            self.SPT = PatchShifting(2) if is_SPT else nn.Identity()
             self.pool = nn.MaxPool2d(3, stride, 1)
             self.proj = nn.Conv2d(inp, oup, 1, 1, 0, bias=False)
 
@@ -188,7 +188,7 @@ class Attention(nn.Module):
 
 class Transformer(nn.Module):
     def __init__(self, inp, oup, image_size, heads=8, dim_head=32, downsample=False, dropout=0., 
-                 is_LSA=False, is_Coord=False, is_last=False):
+                 is_LSA=False, is_Coord=False, is_last=False, is_SPT=False):
         super().__init__()
         hidden_dim = int(inp * 2)
         
@@ -196,7 +196,7 @@ class Transformer(nn.Module):
         self.downsample = downsample
 
         if self.downsample:
-            self.SPT = PatchShifting(2) if is_Coord else nn.Identity()
+            self.SPT = PatchShifting(2) if is_SPT else nn.Identity()
             self.pool1 = nn.MaxPool2d(3, 2, 1)
             self.pool2 = nn.MaxPool2d(3, 2, 1)
             self.proj = nn.Conv2d(inp, oup, 1, 1, 0, bias=False)
@@ -240,40 +240,40 @@ class CoAtNet(nn.Module):
             self.s0 = self._make_layer(
                 conv_3x3_bn, in_channels if not is_SPT else in_channels*5, channels[0], num_blocks[0], (ih, iw), is_Coord=is_Coord)
             self.s1 = self._make_layer(
-                block[block_types[0]], channels[0] if not is_SPT else channels[0]*5, channels[1], num_blocks[1], (ih, iw), is_Coord=is_Coord)
+                block[block_types[0]], channels[0] if not is_SPT else channels[0]*5, channels[1], num_blocks[1], (ih, iw), is_Coord=is_Coord, is_SPT=is_SPT)
             POOL = True
             ih//=2
             iw//=2
             self.s2 = self._make_layer(
-                block[block_types[1]], channels[1] if not is_SPT else channels[1]*5, channels[2], num_blocks[2], (ih, iw), is_Coord=is_Coord)
+                block[block_types[1]], channels[1] if not is_SPT else channels[1]*5, channels[2], num_blocks[2], (ih, iw), is_Coord=is_Coord, is_SPT=is_SPT)
             ih//=2
             iw//=2
             self.s3 = self._make_layer(
-                block[block_types[2]], channels[2] if not is_SPT else channels[2]*5, channels[3], num_blocks[3], (ih, iw), is_transformer=True, is_Coord=is_Coord)
+                block[block_types[2]], channels[2] if not is_SPT else channels[2]*5, channels[3], num_blocks[3], (ih, iw), is_transformer=True, is_Coord=is_Coord, is_SPT=is_SPT)
             ih//=2
             iw//=2
             self.s4 = self._make_layer(
-                block[block_types[3]], channels[3] if not is_SPT else channels[3]*5, channels[4], num_blocks[4], (ih, iw), is_transformer=True, is_last=True, is_Coord=is_Coord)
+                block[block_types[3]], channels[3] if not is_SPT else channels[3]*5, channels[4], num_blocks[4], (ih, iw), is_transformer=True, is_last=True, is_Coord=is_Coord, is_SPT=is_SPT)
         else:
             self.s0 = self._make_layer(
-                conv_3x3_bn, in_channels if not is_SPT else in_channels*5, channels[0], num_blocks[0], (ih, iw), is_Coord=is_Coord)
+                conv_3x3_bn, in_channels if not is_SPT else in_channels*5, channels[0], num_blocks[0], (ih, iw), is_Coord=is_Coord, is_SPT=is_SPT)
             POOL = True
             ih//=2
             iw//=2
             self.s1 = self._make_layer(
-                block[block_types[0]], channels[0] if not is_SPT else channels[0]*5, channels[1], num_blocks[1], (ih, iw), is_Coord=is_Coord)
+                block[block_types[0]], channels[0] if not is_SPT else channels[0]*5, channels[1], num_blocks[1], (ih, iw), is_Coord=is_Coord, is_SPT=is_SPT)
             ih//=2
             iw//=2
             self.s2 = self._make_layer(
-                block[block_types[1]], channels[1] if not is_SPT else channels[1]*5, channels[2], num_blocks[2], (ih, iw), is_Coord=is_Coord)
+                block[block_types[1]], channels[1] if not is_SPT else channels[1]*5, channels[2], num_blocks[2], (ih, iw), is_Coord=is_Coord, is_SPT=is_SPT)
             ih//=2
             iw//=2
             self.s3 = self._make_layer(
-                block[block_types[2]], channels[2] if not is_SPT else channels[2]*5, channels[3], num_blocks[3], (ih, iw), is_transformer=True, is_Coord=is_Coord)
+                block[block_types[2]], channels[2] if not is_SPT else channels[2]*5, channels[3], num_blocks[3], (ih, iw), is_transformer=True, is_Coord=is_Coord, is_SPT=is_SPT)
             ih//=2
             iw//=2
             self.s4 = self._make_layer(
-                block[block_types[3]], channels[3] if not is_SPT else channels[3]*5, channels[4], num_blocks[4], (ih, iw), is_transformer=True, is_last=True, is_Coord=is_Coord)
+                block[block_types[3]], channels[3] if not is_SPT else channels[3]*5, channels[4], num_blocks[4], (ih, iw), is_transformer=True, is_last=True, is_Coord=is_Coord, is_SPT=is_SPT)
 
         self.pool = nn.AvgPool2d(ih, 1)
         self.fc = nn.Linear(channels[-1], num_classes, bias=False)
@@ -289,18 +289,18 @@ class CoAtNet(nn.Module):
         x = self.fc(x)
         return x
 
-    def _make_layer(self, block, inp, oup, depth, image_size, is_transformer=False, is_last=False, is_Coord=False):
+    def _make_layer(self, block, inp, oup, depth, image_size, is_transformer=False, is_last=False, is_Coord=False, is_SPT=False):
         layers = nn.ModuleList([])
         if not is_transformer:
             for i in range(depth):
                 if i == 0:
-                    layers.append(block(inp, oup, image_size, downsample=True, is_Coord=is_Coord))
+                    layers.append(block(inp, oup, image_size, downsample=True, is_Coord=is_Coord, is_SPT=is_SPT))
                 else:
-                    layers.append(block(oup, oup, image_size, is_Coord=is_Coord))
+                    layers.append(block(oup, oup, image_size))
         else:
             for i in range(depth):
                 if i == 0:
-                    layers.append(block(inp, oup, image_size, downsample=True, is_Coord=is_Coord))
+                    layers.append(block(inp, oup, image_size, downsample=True, is_Coord=is_Coord, is_SPT=is_SPT))
                 else:
                     layers.append(block(oup, oup, image_size, is_LSA=self.is_LSA, is_Coord=self.is_Coord, is_last = False if not (i == depth-1 and is_last) else True))
         return nn.Sequential(*layers)

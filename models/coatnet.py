@@ -9,10 +9,10 @@ from einops.layers.torch import Rearrange
 
 POOL = False
 
-def conv_3x3_bn(inp, oup, image_size, downsample=False, is_Coord=False):
+def conv_3x3_bn(inp, oup, image_size, downsample=False, is_Coord=False, is_SPT=False):
     # stride = 1 if downsample == False else 2
     return nn.Sequential(
-        PatchShifting(2) if (is_Coord and downsample) else nn.Identity(),
+        PatchShifting(2) if (is_SPT and downsample) else nn.Identity(),
         # nn.Conv2d(inp, oup, 3, stride, 1, bias=False),
         nn.Conv2d(inp, oup, 3, 1, 1, bias=False),
         nn.BatchNorm2d(oup),
@@ -64,7 +64,7 @@ class FeedForward(nn.Module):
 
 
 class MBConv(nn.Module):
-    def __init__(self, inp, oup, image_size, downsample=False, expansion=2, is_Coord=False):
+    def __init__(self, inp, oup, image_size, downsample=False, expansion=2, is_Coord=False, is_SPT=False):
         super().__init__()
         global POOL
         self.downsample = downsample
@@ -294,18 +294,18 @@ class CoAtNet(nn.Module):
         x = self.fc(x)
         return x
 
-    def _make_layer(self, block, inp, oup, depth, image_size, is_transformer=False, is_last=False, is_Coord=False):
+    def _make_layer(self, block, inp, oup, depth, image_size, is_transformer=False, is_last=False, is_Coord=False, is_SPT=False):
         layers = nn.ModuleList([])
         if not is_transformer:
             for i in range(depth):
                 if i == 0:
-                    layers.append(block(inp, oup, image_size, downsample=True, is_Coord=is_Coord))
+                    layers.append(block(inp, oup, image_size, downsample=True, is_Coord=is_Coord, is_SPT=is_SPT))
                 else:
-                    layers.append(block(oup, oup, image_size, is_Coord=is_Coord))
+                    layers.append(block(oup, oup, image_size))
         else:
             for i in range(depth):
                 if i == 0:
-                    layers.append(block(inp, oup, image_size, downsample=True, is_Coord=is_Coord))
+                    layers.append(block(inp, oup, image_size, downsample=True, is_Coord=is_Coord, is_SPT=is_SPT))
                 else:
                     layers.append(block(oup, oup, image_size, is_LSA=self.is_LSA, is_Coord=self.is_Coord, is_last = False if not (i == depth-1 and is_last) else True))
         return nn.Sequential(*layers)
