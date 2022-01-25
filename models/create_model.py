@@ -76,6 +76,8 @@ def create_model(img_size, n_classes, args):
     
     elif args.model =='coatnet2_0':
         model = coatnet2_0(img_size=img_size, n_classes=n_classes, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
+    elif args.model =='coatnet2_1':
+        model = coatnet2_1(img_size=img_size, n_classes=n_classes, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
     elif args.model =='coatnet3_0':
         model = coatnet3_0(img_size=img_size, n_classes=n_classes, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
         
