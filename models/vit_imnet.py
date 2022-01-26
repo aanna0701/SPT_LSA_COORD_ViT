@@ -207,7 +207,7 @@ class ViT_trans(nn.Module):
         
         if not is_Coord:
             self.pos_embedding = nn.Parameter(torch.randn(1, self.num_patches + 1, self.dim))
-            self.pos_embedding_trans = nn.Parameter(torch.randn(1, self.num_patches + 1, self.dim))
+            self.pos_embedding_trans = nn.Parameter(torch.randn(1, self.num_patches_trans + 1, self.dim))
             
         self.cls_token = nn.Parameter(torch.randn(1, 1, self.dim))
         self.dropout = nn.Dropout(emb_dropout)
