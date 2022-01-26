@@ -547,7 +547,7 @@ def get_args_parser():
 MODELS = MODELS = ['vit', 'swin_t','swin_s','swin_b','swin_l', 'pit', 
           'cait_xxs24', 'cait_xs24', 'cait_xxs36', 't2t', 'effiv2', 
           'regnet', 'effiv2_m', 'regnet_200mf', 'regnet_400mf',
-          'res56', 'res110', 'effib0', 'coatnet_0']
+          'res56', 'res110', 'effib0', 'coatnet_0', 'regnetY_200mf']
     
 
 def main(args):
