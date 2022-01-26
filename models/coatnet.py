@@ -14,7 +14,7 @@ def conv_3x3_bn(inp, oup, image_size, downsample=False, is_Coord=False, is_SPT=F
     return nn.Sequential(
         PatchShifting(2) if (is_SPT and downsample) else nn.Identity(),
         # nn.Conv2d(inp, oup, 3, stride, 1, bias=False),
-        nn.Conv2d(inp, oup, 3, 1, 1, bias=False),
+        nn.Conv2d(inp if not (is_SPT and downsample) else inp*5, oup, 3, 1, 1, bias=False),
         nn.BatchNorm2d(oup),
         nn.GELU()
     )
