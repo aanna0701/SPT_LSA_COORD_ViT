@@ -72,6 +72,7 @@ class MBConv(nn.Module):
             POOL = True
         # stride = 1 if self.downsample == False else 2
         stride = 2 if downsample and POOL else 1
+        inp = inp if not is_SPT else inp*5
         hidden_dim = int(inp * expansion)
 
         if self.downsample:
