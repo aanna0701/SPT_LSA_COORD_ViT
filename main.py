@@ -23,13 +23,15 @@ from models.create_model import create_model
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 import warnings
+
 warnings.filterwarnings("ignore", category=Warning)
 
 best_acc1 = 0
 MODELS = ['vit', 'swin_t','swin_s','swin_b','swin_l', 'pit', 
           'cait_xxs24', 'cait_xs24', 'cait_s24', 'cait_xxs36', 't2t', 'effiv2', 
           'regnet', 'effiv2_m', 'regnet_200mf', 'regnet_400mf', 'regnetY_200mf',
-          'coatnet_0', 'coatnet_1', 'coatnet_2', 'coatnet_3', 'coatnet2_0', 'coatnet2_1', 'coatnet3_0']
+          'coatnet_0', 'coatnet_1', 'coatnet_2', 'coatnet_3', 'coatnet2_0', 'coatnet2_1', 
+          'coatnet3_0', 'swin-t_imgnet', 'vit-ti']
 
 
 def init_parser():

@@ -17,6 +17,14 @@ def create_model(img_size, n_classes, args):
         model = ViT(img_size=img_size, patch_size = patch_size, num_classes=n_classes, dim=192, 
                     mlp_dim_ratio=2, depth=9, heads=12, dim_head=192//12,
                     stochastic_depth=0.1, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
+    
+    elif args.model == 'vit-ti':
+        model = ViT(img_size=img_size, patch_size = 16, num_classes=n_classes, dim=192, 
+                    mlp_dim_ratio=4, depth=12, heads=3, dim_head=192//3,
+                    stochastic_depth=0.1, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
+    
+    elif args.model == 'swin-t_imgnet':
+        model = SwinTransformer(is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
 
     elif args.model == 'cait_xxs24':       
         patch_size = 4 if img_size == 32 else 8
