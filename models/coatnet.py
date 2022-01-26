@@ -78,7 +78,7 @@ class MBConv(nn.Module):
         if self.downsample:
             self.SPT = PatchShifting(2) if is_SPT else nn.Identity()
             self.pool = nn.MaxPool2d(3, stride, 1)
-            self.proj = nn.Conv2d(inp*5 if is_SPT else inp, oup, 1, 1, 0, bias=False)
+            self.proj = nn.Conv2d(inp, oup, 1, 1, 0, bias=False)
 
         if expansion == 1:
             self.conv = nn.Sequential(
