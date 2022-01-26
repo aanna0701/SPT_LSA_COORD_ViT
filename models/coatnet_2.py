@@ -75,8 +75,9 @@ class MBConv(nn.Module):
         hidden_dim = int(inp * expansion)
 
         if self.downsample:
+            self.SPT = PatchShifting(2) if is_SPT else nn.Identity()
             self.pool = nn.MaxPool2d(3, stride, 1)
-            self.proj = nn.Conv2d(inp, oup, 1, 1, 0, bias=False)
+            self.proj = nn.Conv2d(inp*5 if is_SPT else inp, oup, 1, 1, 0, bias=False)
 
         if expansion == 1:
             self.conv = nn.Sequential(
@@ -111,6 +112,7 @@ class MBConv(nn.Module):
 
     def forward(self, x):
         if self.downsample:
+            x = self.SPT(x)
             return self.proj(self.pool(x)) + self.conv(x)
         else:
             return x + self.conv(x)
@@ -247,12 +249,12 @@ class CoAtNet(nn.Module):
             self.s0 = self._make_layer(
                 conv_3x3_bn, in_channels, channels[0], num_blocks[0], (ih, iw))
             self.s1 = self._make_layer(
-                block[block_types[0]], channels[0], channels[1], num_blocks[1], (ih, iw))
+                block[block_types[0]], channels[0], channels[1], num_blocks[1], (ih, iw), is_SPT=is_SPT)
             POOL = True
             ih//=2
             iw//=2
             self.s2 = self._make_layer(
-                block[block_types[1]], channels[1], channels[2], num_blocks[2], (ih, iw))
+                block[block_types[1]], channels[1], channels[2], num_blocks[2], (ih, iw), is_SPT=is_SPT)
             ih//=2
             iw//=2
             self.s3 = self._make_layer(
@@ -268,11 +270,11 @@ class CoAtNet(nn.Module):
             ih//=2
             iw//=2
             self.s1 = self._make_layer(
-                block[block_types[0]], channels[0], channels[1], num_blocks[1], (ih, iw))
+                block[block_types[0]], channels[0], channels[1], num_blocks[1], (ih, iw), is_SPT=is_SPT)
             ih//=2
             iw//=2
             self.s2 = self._make_layer(
-                block[block_types[1]], channels[1], channels[2], num_blocks[2], (ih, iw))
+                block[block_types[1]], channels[1], channels[2], num_blocks[2], (ih, iw), is_SPT=is_SPT)
             ih//=2
             iw//=2
             self.s3 = self._make_layer(
