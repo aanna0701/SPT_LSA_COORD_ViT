@@ -113,6 +113,8 @@ def init_parser():
     parser.add_argument('--is_SPT', action='store_true', help='Shifted Patch Tokenization')
     
     parser.add_argument('--is_Coord', action='store_true', help='CoordLinear')
+    
+    parser.add_argument('--is_Transfer', default='', help='Transfer learning')
 
     return parser
 
@@ -262,6 +264,10 @@ def main(args):
         final_epoch = args.epochs
         args.epochs = final_epoch - (checkpoint['epoch'] + 1)
     
+    if not args.is_Transfer == "":
+        checkpoint = torch.load(args.is_Transfer)['model']
+        model.load_state_dict(checkpoint, strict=False)
+ 
     
     for epoch in tqdm(range(args.epochs)):
         lr = train(train_loader, model, criterion, optimizer, epoch, scheduler, args)
@@ -469,6 +475,9 @@ if __name__ == '__main__':
         
     if args.is_Coord:
         model_name += "-Coord"
+        
+    if not args.is_Transfer == "":
+        model_name += "-Trans"
         
     model_name += f"-{args.tag}-{args.dataset}-LR[{args.lr}]-Seed{args.seed}"
     save_path = os.path.join(os.getcwd(), 'save', model_name)
