@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 
 from .SPT import PatchShifting, ShiftedPatchTokenization
-from .Coord import CoordLinear
+from .Coord import CoordLinear, CoordConv
 from einops import rearrange
 from einops.layers.torch import Rearrange
 
@@ -14,7 +14,7 @@ def conv_3x3_bn(inp, oup, image_size, downsample=False, is_Coord=False, is_SPT=F
     return nn.Sequential(
         PatchShifting(2) if (is_SPT and downsample) else nn.Identity(),
         # nn.Conv2d(inp, oup, 3, stride, 1, bias=False),
-        nn.Conv2d(inp, oup, 3, 1, 1, bias=False),
+        nn.Conv2d(inp if not (is_SPT and downsample) else inp*5, oup, 3, 1, 1, bias=False) if not is_Coord else CoordConv(inp if not (is_SPT and downsample) else inp*5, oup, kernel_size=3, stride=1, padding=1, bias=False),
         nn.BatchNorm2d(oup),
         nn.GELU()
     )
@@ -72,12 +72,13 @@ class MBConv(nn.Module):
             POOL = True
         # stride = 1 if self.downsample == False else 2
         stride = 2 if downsample and POOL else 1
+        inp = inp if not is_SPT else inp*5
         hidden_dim = int(inp * expansion)
 
         if self.downsample:
             self.SPT = PatchShifting(2) if is_SPT else nn.Identity()
             self.pool = nn.MaxPool2d(3, stride, 1)
-            self.proj = nn.Conv2d(inp, oup, 1, 1, 0, bias=False)
+            self.proj = nn.Conv2d(inp, oup, 1, 1, 0, bias=False) if not is_Coord else CoordConv(inp, oup, kernel_size=1, stride=1, padding=0, bias=False)
 
         if expansion == 1:
             self.conv = nn.Sequential(
@@ -87,14 +88,14 @@ class MBConv(nn.Module):
                 nn.BatchNorm2d(hidden_dim),
                 nn.GELU(),
                 # pw-linear
-                nn.Conv2d(hidden_dim, oup, 1, 1, 0, bias=False),
+                nn.Conv2d(hidden_dim, oup, 1, 1, 0, bias=False) if not is_Coord else CoordConv(hidden_dim, oup, kernel_size=1, stride=1, padding=0, bias=False),
                 nn.BatchNorm2d(oup),
             )
         else:
             self.conv = nn.Sequential(
                 # pw
                 # down-sample in the first conv
-                nn.Conv2d(inp, hidden_dim, 1, stride, 0, bias=False),
+                nn.Conv2d(inp, hidden_dim, 1, stride, 0, bias=False) if not is_Coord else CoordConv(inp, hidden_dim, kernel_size=1, stride=stride, padding=0, bias=False),
                 nn.BatchNorm2d(hidden_dim),
                 nn.GELU(),
                 # dw
@@ -104,7 +105,7 @@ class MBConv(nn.Module):
                 nn.GELU(),
                 SE(inp, hidden_dim),
                 # pw-linear
-                nn.Conv2d(hidden_dim, oup, 1, 1, 0, bias=False),
+                nn.Conv2d(hidden_dim, oup, 1, 1, 0, bias=False) if not is_Coord else CoordConv(hidden_dim, oup, kernel_size=1, stride=1, padding=0, bias=False),
                 nn.BatchNorm2d(oup),
             )
         
@@ -194,12 +195,18 @@ class Transformer(nn.Module):
         
         self.ih, self.iw = image_size
         self.downsample = downsample
-
+        self.is_SPT = is_SPT
         if self.downsample:
-            self.SPT = PatchShifting(2) if is_SPT else nn.Identity()
-            self.pool1 = nn.MaxPool2d(3, 2, 1)
-            self.pool2 = nn.MaxPool2d(3, 2, 1)
-            self.proj = nn.Conv2d(inp, oup, 1, 1, 0, bias=False)
+            if not is_SPT:
+                self.pool1 = nn.MaxPool2d(3, 2, 1)
+                self.pool2 = nn.MaxPool2d(3, 2, 1)
+                self.proj = nn.Conv2d(inp, oup, 1, 1, 0, bias=False)     
+            else:
+                inp *= 5
+                self.SPT = PatchShifting(2)
+                self.pool1 = nn.MaxPool2d(3, 2, 1)
+                self.pool2 = nn.MaxPool2d(3, 2, 1)
+                self.proj = nn.Conv2d(inp, oup, 1, 1, 0, bias=False)     
 
         self.attn = Attention(inp, oup, image_size, heads, dim_head, dropout, is_LSA=is_LSA, is_Coord=is_Coord)
         self.ff = FeedForward(oup, hidden_dim, dropout, is_Coord=is_Coord if not is_last else False)
@@ -218,8 +225,11 @@ class Transformer(nn.Module):
 
     def forward(self, x):
         if self.downsample:
-            x = self.SPT(x)
-            x = self.proj(self.pool1(x)) + self.attn(self.pool2(x))
+            if not self.is_SPT:
+                x = self.proj(self.pool1(x)) + self.attn(self.pool2(x))
+            else:
+                x = self.SPT(x)
+                x = self.proj(self.pool1(x)) + self.attn(self.pool2(x))
         else:
             x = x + self.attn(x)
         x = x + self.ff(x)
@@ -238,42 +248,42 @@ class CoAtNet(nn.Module):
         self.is_Coord = is_Coord
         if ih == 32:
             self.s0 = self._make_layer(
-                conv_3x3_bn, in_channels if not is_SPT else in_channels*5, channels[0], num_blocks[0], (ih, iw), is_Coord=is_Coord, is_SPT=is_SPT)
+                conv_3x3_bn, in_channels, channels[0], num_blocks[0], (ih, iw), is_SPT=is_SPT, is_Coord=is_Coord)
             self.s1 = self._make_layer(
-                block[block_types[0]], channels[0] if not is_SPT else channels[0]*5, channels[1], num_blocks[1], (ih, iw), is_Coord=is_Coord, is_SPT=is_SPT)
+                block[block_types[0]], channels[0], channels[1], num_blocks[1], (ih, iw), is_SPT=is_SPT, is_Coord=is_Coord)
             POOL = True
             ih//=2
             iw//=2
             self.s2 = self._make_layer(
-                block[block_types[1]], channels[1] if not is_SPT else channels[1]*5, channels[2], num_blocks[2], (ih, iw), is_Coord=is_Coord, is_SPT=is_SPT)
+                block[block_types[1]], channels[1], channels[2], num_blocks[2], (ih, iw), is_SPT=is_SPT, is_Coord=is_Coord)
             ih//=2
             iw//=2
             self.s3 = self._make_layer(
-                block[block_types[2]], channels[2] if not is_SPT else channels[2]*5, channels[3], num_blocks[3], (ih, iw), is_transformer=True, is_Coord=is_Coord, is_SPT=is_SPT)
+                block[block_types[2]], channels[2], channels[3], num_blocks[3], (ih, iw), is_transformer=True, is_Coord=is_Coord, is_SPT=is_SPT)
             ih//=2
             iw//=2
             self.s4 = self._make_layer(
-                block[block_types[3]], channels[3] if not is_SPT else channels[3]*5, channels[4], num_blocks[4], (ih, iw), is_transformer=True, is_last=True, is_Coord=is_Coord, is_SPT=is_SPT)
+                block[block_types[3]], channels[3], channels[4], num_blocks[4], (ih, iw), is_transformer=True, is_last=True, is_Coord=is_Coord, is_SPT=is_SPT)
         else:
             self.s0 = self._make_layer(
-                conv_3x3_bn, in_channels if not is_SPT else in_channels*5, channels[0], num_blocks[0], (ih, iw), is_Coord=is_Coord, is_SPT=is_SPT)
+                conv_3x3_bn, in_channels, channels[0], num_blocks[0], (ih, iw), is_SPT=is_SPT, is_Coord=is_Coord)
             POOL = True
             ih//=2
             iw//=2
             self.s1 = self._make_layer(
-                block[block_types[0]], channels[0] if not is_SPT else channels[0]*5, channels[1], num_blocks[1], (ih, iw), is_Coord=is_Coord, is_SPT=is_SPT)
+                block[block_types[0]], channels[0], channels[1], num_blocks[1], (ih, iw), is_SPT=is_SPT, is_Coord=is_Coord)
             ih//=2
             iw//=2
             self.s2 = self._make_layer(
-                block[block_types[1]], channels[1] if not is_SPT else channels[1]*5, channels[2], num_blocks[2], (ih, iw), is_Coord=is_Coord, is_SPT=is_SPT)
+                block[block_types[1]], channels[1], channels[2], num_blocks[2], (ih, iw), is_SPT=is_SPT, is_Coord=is_Coord)
             ih//=2
             iw//=2
             self.s3 = self._make_layer(
-                block[block_types[2]], channels[2] if not is_SPT else channels[2]*5, channels[3], num_blocks[3], (ih, iw), is_transformer=True, is_Coord=is_Coord, is_SPT=is_SPT)
+                block[block_types[2]], channels[2], channels[3], num_blocks[3], (ih, iw), is_transformer=True, is_Coord=is_Coord, is_SPT=is_SPT)
             ih//=2
             iw//=2
             self.s4 = self._make_layer(
-                block[block_types[3]], channels[3] if not is_SPT else channels[3]*5, channels[4], num_blocks[4], (ih, iw), is_transformer=True, is_last=True, is_Coord=is_Coord, is_SPT=is_SPT)
+                block[block_types[3]], channels[3], channels[4], num_blocks[4], (ih, iw), is_transformer=True, is_last=True, is_Coord=is_Coord, is_SPT=is_SPT)
 
         self.pool = nn.AvgPool2d(ih, 1)
         self.fc = nn.Linear(channels[-1], num_classes, bias=False)
@@ -323,13 +333,13 @@ def coatnet3_0(img_size, n_classes, is_LSA=False, is_SPT=False, is_Coord=False):
     return CoAtNet((img_size, img_size), 3, num_blocks, channels, num_classes=n_classes, is_LSA=is_LSA, is_SPT=is_SPT, is_Coord=is_Coord)
 
 
-def coatnet2_1(img_size, n_classes, is_LSA=False, is_SPT=False, is_Coord=False):
-    if img_size > 32:
-        num_blocks = [2, 2, 6, 14, 2]           # L
-        channels = [64, 96, 192, 384, 768]      # D
-    else:
-        num_blocks = [2, 6, 14, 2]           # L
-        channels = [64, 192, 384, 768]      # D
+def coatnet_1(img_size, n_classes, is_LSA=False, is_SPT=False, is_Coord=False):
+    # if img_size > 32:
+    num_blocks = [2, 2, 6, 14, 2]           # L
+    channels = [64, 96, 192, 384, 768]      # D
+    # else:
+    #     num_blocks = [2, 6, 14, 2]           # L
+    #     channels = [64, 192, 384, 768]      # D
     return CoAtNet((img_size, img_size), 3, num_blocks, channels, num_classes=n_classes, is_LSA=is_LSA, is_SPT=is_SPT, is_Coord=is_Coord)
 
 
