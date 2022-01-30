@@ -68,8 +68,8 @@ class MBConv(nn.Module):
         super().__init__()
         global POOL
         self.downsample = downsample
-        if image_size[0] > 32 and self.downsample:
-            POOL = True
+        # if image_size[0] > 32 and self.downsample:
+        #     POOL = True
         # stride = 1 if self.downsample == False else 2
         stride = 2 if downsample and POOL else 1
         inp = inp if not is_SPT else inp*5
@@ -290,11 +290,8 @@ class CoAtNet(nn.Module):
 
     def forward(self, x):
         x = self.s0(x)
-        print(x.shape)
         x = self.s1(x)
-        print(x.shape)
         x = self.s2(x)
-        print(x.shape)
         x = self.s3(x)
         x = self.s4(x)
 
