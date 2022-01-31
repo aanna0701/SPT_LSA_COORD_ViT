@@ -25,6 +25,19 @@ def create_model(img_size, n_classes, args):
                     mlp_dim_ratio=4, depth=12, heads=3, dim_head=192//3,
                     stochastic_depth=0.1, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
 
+    if args.model == 'vit_s':
+        if not img_size == 224:
+            patch_size = 4 if img_size == 32 else 8
+            model = ViT(img_size=img_size, patch_size = patch_size, num_classes=n_classes, dim=384, 
+                        mlp_dim_ratio=2, depth=12, heads=6, dim_head=384//6,
+                        stochastic_depth=0.1, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
+        else:
+            model = ViT(img_size=224, patch_size = 16,
+                          num_classes=1000, dim=384, 
+                    mlp_dim_ratio=4, depth=12, heads=6, dim_head=384//6,
+                    stochastic_depth=0.1, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
+
+
 
     elif args.model == 'cait_xxs24':       
         patch_size = 4 if img_size == 32 else 8
