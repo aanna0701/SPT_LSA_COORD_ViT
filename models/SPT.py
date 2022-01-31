@@ -14,7 +14,6 @@ class ShiftedPatchTokenization(nn.Module):
         self.is_Coord = is_Coord
         self.num_patches = input_size
         self.num_patches = self.num_patches // (merging_size**2)
-        print(self.num_patches)
         self.patch_shifting = PatchShifting(merging_size)
         
         patch_dim = (in_dim*5) * (merging_size**2) 
