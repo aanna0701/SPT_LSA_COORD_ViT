@@ -577,8 +577,8 @@ def main(args):
 
     if args.type == 'latency': 
         # Throughput
-        
-        inputs = torch.randn(1024, 3, img_size, img_size).cuda(GPU)
+        batch=1024
+        inputs = torch.randn(batch, 3, img_size, img_size).cuda(GPU)
         repetitions=30
         warmup = 100
         model.cuda(GPU)
@@ -594,8 +594,9 @@ def main(args):
                     torch.cuda.synchronize()
                     curr_time = starter.elapsed_time(ender)/1000
                     total_time += curr_time
-        Throughput =   (repetitions*128)/total_time
+        Throughput =   (repetitions*batch)/total_time
         print(f'Model: {args.model} Final Throughput:{Throughput}')
+        print()
         
 
     elif args.type == 'flops':
@@ -608,12 +609,13 @@ def main(args):
                 print(f'Model: {args.model}')
                 print('{:<30}  {:<8}'.format('Computational complexity: ', macs))
                 print('{:<30}  {:<8}'.format('Number of parameters: ', params))
+                print()
         
         else:
             print(f'Model: {args.model}')
             print('FLOPs: ', format(model.flops(), ","))
             print('PARMAS.: ', format(sum(p.numel() for p in model.parameters() if p.requires_grad), ","))
-        
+            print()
             
 if __name__ == '__main__':
     parser = get_args_parser()
