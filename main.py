@@ -29,7 +29,7 @@ warnings.filterwarnings("ignore", category=Warning)
 best_acc1 = 0
 MODELS = ['vit', 'swin_t','swin_s','swin_b','swin_l', 'pit', 
           'cait_xxs24', 'cait_xs24', 'cait_s24', 'cait_xxs36', 't2t', 'effiv2', 
-          'regnet', 'effiv2_m', 'regnet_200mf', 'regnet_400mf', 'regnetY_200mf',
+          'regnetX_400m', 'regnetY_4G', 'regnetY_8G', 'effiv2_m', 'regnetX_200m', 'regnetY_400m', 'regnetY_200m',
           'coatnet_0', 'coatnet_1', 'coatnet_2', 'coatnet_3', 'coatnet2_0', 'coatnet2_1', 
           'coatnet3_0']
 

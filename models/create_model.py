@@ -10,6 +10,7 @@ from .efficientnet import EfficientNetB0
 from .coatnet import *
 from .coatnet_2 import coatnet2_0, coatnet2_1
 from .coatnet_3 import coatnet3_0
+import timm
 
 def create_model(img_size, n_classes, args):
     if args.model == 'vit':
@@ -129,8 +130,14 @@ def create_model(img_size, n_classes, args):
                                 patch_size=patch_size, mlp_ratio=mlp_ratio, depths=depths, num_heads=num_heads, num_classes=n_classes, 
                                 is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
         
-    elif args.model =='regnet':
+    elif args.model =='regnetY_400m':
         model = RegNetY_400MF(n_classes)
+        
+    elif args.model =='regnetY_4G':
+        model = timm.create_model('regnety_040')
+    
+    elif args.model =='regnetY_8G':
+        model = timm.create_model('regnety_080')
 
     elif args.model =='res56':
         model = resnet56(n_classes)
@@ -144,13 +151,13 @@ def create_model(img_size, n_classes, args):
     elif args.model =='effiv2':        
         model = effnetv2_s(n_classes)
         
-    elif args.model =='regnet_200mf':
+    elif args.model =='regnetX_200m':
         model = RegNetX_200MF(n_classes)
 
-    elif args.model =='regnetY_200mf':
+    elif args.model =='regnetY_200m':
         model = RegNetY_200MF(n_classes)
         
-    elif args.model =='regnet_400mf':
+    elif args.model =='regnetX_400m':
         model = RegNetX_400MF(n_classes)
         
     elif args.model =='effiv2_m':
