@@ -232,7 +232,7 @@ class ViT(nn.Module):
     def flops(self):
         flops = 0
         
-        if not self.is_Coord:
+        if not self.is_SPT:
             flops += self.num_patches * self.patch_dim * self.dim 
         else:
             flops += self.to_patch_embedding.flops()        
