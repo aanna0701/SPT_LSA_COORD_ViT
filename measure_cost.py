@@ -612,6 +612,7 @@ def main(args):
         else:
             print(f'Model: {args.model}')
             print('FLOPs: ', format(model.flops(), ","))
+            print('PARMAS.: ', format(sum(p.numel() for p in model.parameters() if p.requires_grad), ","))
         
             
 if __name__ == '__main__':
