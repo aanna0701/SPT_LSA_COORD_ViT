@@ -19,7 +19,7 @@ def create_model(img_size, n_classes, args):
                         mlp_dim_ratio=2, depth=9, heads=12, dim_head=192//12,
                         stochastic_depth=0.1, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
         else:
-            model = ViT(img_size=224, img_size_trans=img_size, patch_size = 16,patch_size_trans = patch_size,
+            model = ViT(img_size=224, img_size_trans=img_size, patch_size = 16,
                           num_classes=1000, num_classes_trans=n_classes,dim=192, 
                     mlp_dim_ratio=4, depth=12, heads=3, dim_head=192//3,
                     stochastic_depth=0.1, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
