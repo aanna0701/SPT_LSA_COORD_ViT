@@ -599,7 +599,7 @@ def main(args):
         
 
     elif args.type == 'flops':
-        if args.model in ['effiv2', 'regnet', 'effiv2_m', 'regnet_200mf', 'regnet_400mf', 'regnetY_200mf']:
+        if args.model in ['effiv2', 'regnet', 'effiv2_m', 'regnet_200mf', 'regnet_400mf', 'regnetY_200mf', 'res110', 'effib0']:
             # CNN flops
             
             with torch.cuda.device(GPU):
