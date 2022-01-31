@@ -31,7 +31,7 @@ MODELS = ['vit', 'swin_t','swin_s','swin_b','swin_l', 'pit',
           'cait_xxs24', 'cait_xs24', 'cait_s24', 'cait_xxs36', 't2t', 'effiv2', 
           'regnetX_400m', 'regnetY_4G', 'regnetY_8G', 'effiv2_m', 'regnetX_200m', 'regnetY_400m', 'regnetY_200m',
           'coatnet_0', 'coatnet_1', 'coatnet_2', 'coatnet_3', 'coatnet2_0', 'coatnet2_1', 
-          'coatnet3_0']
+          'coatnet3_0', 'vit_s']
 
 
 
@@ -115,19 +115,38 @@ def init_parser():
     
     parser.add_argument('--is_Coord', action='store_true', help='CoordLinear')
     
-    parser.add_argument('--is_Transfer', default='', help='Transfer learning')
+    parser.add_argument('--is_MAE', action='store_true', help='Masked Auto Encoder')
 
     return parser
 
 
 def main(args):
-    global best_acc1    
+    global best_acc1, mae
     
     torch.cuda.set_device(args.gpu)
 
     data_info = datainfo(logger, args)
     
     model = create_model(data_info['img_size'], data_info['n_classes'], args)
+    
+        
+    if args.is_MAE:
+        args.ls = False
+        args.sd = 0
+        args.cm = False
+        args.mu = False
+        args.ra = 1
+        args.aa = False
+        args.re = 0
+        
+        from models.mae import MAE
+        mae = MAE(
+            encoder = model,
+            masking_ratio = 0.75,   # the paper recommended 75% masked patches
+            decoder_dim = 192,      # paper showed good results with just 512
+            decoder_depth = 1       # anywhere from 1 to 8
+        )
+        mae.cuda(args.gpu)
    
     model.cuda(args.gpu)  
         
@@ -138,7 +157,7 @@ def main(args):
     logger.debug(f'Initial learning rate: {args.lr:.6f}')
     logger.debug(f"Start training for {args.epochs} epochs")
     print('*'*80+Style.RESET_ALL)
-    
+
     
     if args.ls:
         print(Fore.YELLOW + '*'*80)
@@ -232,6 +251,12 @@ def main(args):
             transforms.ToTensor(),
             *normalize]
     
+    if args.is_MAE:
+        augmentations = [
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            *normalize
+        ]
     
     augmentations = transforms.Compose(augmentations)
       
@@ -265,10 +290,6 @@ def main(args):
         final_epoch = args.epochs
         args.epochs = final_epoch - (checkpoint['epoch'] + 1)
     
-    if not args.is_Transfer == "":
-        checkpoint = torch.load(args.is_Transfer)['model']
-        model.load_state_dict(checkpoint, strict=False)
- 
     
     for epoch in tqdm(range(args.epochs)):
         lr = train(train_loader, model, criterion, optimizer, epoch, scheduler, args)
@@ -308,6 +329,8 @@ def main(args):
 
 
 def train(train_loader, model, criterion, optimizer, epoch, scheduler,  args):
+    global mae
+    
     model.train()
     loss_val, acc1_val = 0, 0
     n = 0
@@ -317,49 +340,12 @@ def train(train_loader, model, criterion, optimizer, epoch, scheduler,  args):
         if (not args.no_cuda) and torch.cuda.is_available():
             images = images.cuda(args.gpu, non_blocking=True)
             target = target.cuda(args.gpu, non_blocking=True)
-                
-        # Cutmix only
-        if args.cm and not args.mu:
-            r = np.random.rand(1)
-            if r < args.mix_prob:
-                slicing_idx, y_a, y_b, lam, sliced = cutmix_data(images, target, args)
-                images[:, :, slicing_idx[0]:slicing_idx[2], slicing_idx[1]:slicing_idx[3]] = sliced
-                output = model(images)
-                
-                loss =  mixup_criterion(criterion, output, y_a, y_b, lam)
-                
-                   
-            else:
-                output = model(images)
-                
-                loss = criterion(output, target)
-                               
-                
-        # Mixup only
-        elif not args.cm and args.mu:
-            r = np.random.rand(1)
-            if r < args.mix_prob:
-                images, y_a, y_b, lam = mixup_data(images, target, args)
-                output = model(images)
-                
-                loss =  mixup_criterion(criterion, output, y_a, y_b, lam)
-                
-                
-            
-            else:
-                output = model(images)
-                
-                loss =  criterion(output, target)
-                 
-                
-        # Both Cutmix and Mixup
-        elif args.cm and args.mu:
-            r = np.random.rand(1)
-            if r < args.mix_prob:
-                switching_prob = np.random.rand(1)
-                
-                # Cutmix
-                if switching_prob < 0.5:
+        
+        if not args.is_MAE:        
+            # Cutmix only
+            if args.cm and not args.mu:
+                r = np.random.rand(1)
+                if r < args.mix_prob:
                     slicing_idx, y_a, y_b, lam, sliced = cutmix_data(images, target, args)
                     images[:, :, slicing_idx[0]:slicing_idx[2], slicing_idx[1]:slicing_idx[3]] = sliced
                     output = model(images)
@@ -367,29 +353,71 @@ def train(train_loader, model, criterion, optimizer, epoch, scheduler,  args):
                     loss =  mixup_criterion(criterion, output, y_a, y_b, lam)
                     
                     
-                # Mixup
                 else:
+                    output = model(images)
+                    
+                    loss = criterion(output, target)
+                                
+                    
+            # Mixup only
+            elif not args.cm and args.mu:
+                r = np.random.rand(1)
+                if r < args.mix_prob:
                     images, y_a, y_b, lam = mixup_data(images, target, args)
                     output = model(images)
                     
-                    loss = mixup_criterion(criterion, output, y_a, y_b, lam) 
+                    loss =  mixup_criterion(criterion, output, y_a, y_b, lam)
                     
+                    
+                
+                else:
+                    output = model(images)
+                    
+                    loss =  criterion(output, target)
+                    
+                    
+            # Both Cutmix and Mixup
+            elif args.cm and args.mu:
+                r = np.random.rand(1)
+                if r < args.mix_prob:
+                    switching_prob = np.random.rand(1)
+                    
+                    # Cutmix
+                    if switching_prob < 0.5:
+                        slicing_idx, y_a, y_b, lam, sliced = cutmix_data(images, target, args)
+                        images[:, :, slicing_idx[0]:slicing_idx[2], slicing_idx[1]:slicing_idx[3]] = sliced
+                        output = model(images)
+                        
+                        loss =  mixup_criterion(criterion, output, y_a, y_b, lam)
+                        
+                        
+                    # Mixup
+                    else:
+                        images, y_a, y_b, lam = mixup_data(images, target, args)
+                        output = model(images)
+                        
+                        loss = mixup_criterion(criterion, output, y_a, y_b, lam) 
+                        
+                else:
+                    output = model(images)
+                    
+                    loss = criterion(output, target) 
+            
+            # No Mix
             else:
                 output = model(images)
-                
-                loss = criterion(output, target) 
-          
-        # No Mix
-        else:
-            output = model(images)
-                                
-            loss = criterion(output, target)
+                                    
+                loss = criterion(output, target)
+        
+            acc = accuracy(output, target, (1,))
+            acc1 = acc[0]
+            n += images.size(0)
+            loss_val += float(loss.item() * images.size(0))
+            acc1_val += float(acc1[0] * images.size(0))
             
-        acc = accuracy(output, target, (1,))
-        acc1 = acc[0]
-        n += images.size(0)
-        loss_val += float(loss.item() * images.size(0))
-        acc1_val += float(acc1[0] * images.size(0))
+
+        else:
+            loss = mae(images)
 
         optimizer.zero_grad()
         loss.backward()
@@ -398,18 +426,22 @@ def train(train_loader, model, criterion, optimizer, epoch, scheduler,  args):
         lr = optimizer.param_groups[0]["lr"]
 
         if args.print_freq >= 0 and i % args.print_freq == 0:
-            avg_loss, avg_acc1 = (loss_val / n), (acc1_val / n)
-            progress_bar(i, len(train_loader),f'[Epoch {epoch+1}/{args.epochs}][T][{i}]   Loss: {avg_loss:.4e}   Top-1: {avg_acc1:6.2f}   LR: {lr:.7f}'+' '*10)
+            if not args.is_MAE:
+                avg_loss, avg_acc1 = (loss_val / n), (acc1_val / n)
+                progress_bar(i, len(train_loader),f'[Epoch {epoch+1}/{args.epochs}][T][{i}]   Loss: {avg_loss:.4e}   Top-1: {avg_acc1:6.2f}   LR: {lr:.7f}'+' '*10)
+            else:
+                progress_bar(i, len(train_loader),f'[Epoch {epoch+1}/{args.epochs}][T][{i}]   Loss: {loss:.4e}   LR: {lr:.7f}'+' '*10)
 
-    logger_dict.update(keys[0], avg_loss)
-    logger_dict.update(keys[1], avg_acc1)
-    writer.add_scalar("Loss/train", avg_loss, epoch)
-    writer.add_scalar("Acc/train", avg_acc1, epoch)
+    if not args.is_MAE:
+        logger_dict.update(keys[0], avg_loss)
+        logger_dict.update(keys[1], avg_acc1)
+        writer.add_scalar("Loss/train", avg_loss, epoch)
+        writer.add_scalar("Acc/train", avg_acc1, epoch)
     
     return lr
 
-
 def validate(val_loader, model, criterion, lr, args, epoch=None):
+    global mae
     model.eval()
     loss_val, acc1_val = 0, 0
     n = 0
@@ -420,29 +452,38 @@ def validate(val_loader, model, criterion, lr, args, epoch=None):
                 target = target.cuda(args.gpu, non_blocking=True)
 
             
-            output = model(images)
-            loss = criterion(output, target)
-            
-            acc = accuracy(output, target, (1, 5))
-            acc1 = acc[0]
-            n += images.size(0)
-            loss_val += float(loss.item() * images.size(0))
-            acc1_val += float(acc1[0] * images.size(0))
+            if not args.is_MAE:
+                output = model(images)
+                loss = criterion(output, target)
+                acc = accuracy(output, target, (1, 5))
+                acc1 = acc[0]
+                n += images.size(0)
+                loss_val += float(loss.item() * images.size(0))
+                acc1_val += float(acc1[0] * images.size(0))
+
+            else:
+                loss = mae(images)
 
             if args.print_freq >= 0 and i % args.print_freq == 0:
-                avg_loss, avg_acc1 = (loss_val / n), (acc1_val / n)
-                progress_bar(i, len(val_loader), f'[Epoch {epoch+1}][V][{i}]   Loss: {avg_loss:.4e}   Top-1: {avg_acc1:6.2f}   LR: {lr:.6f}')
+                if not args.is_MAE:
+                    avg_loss, avg_acc1 = (loss_val / n), (acc1_val / n)
+                    progress_bar(i, len(val_loader), f'[Epoch {epoch+1}][V][{i}]   Loss: {avg_loss:.4e}   Top-1: {avg_acc1:6.2f}   LR: {lr:.6f}')
+                else:    
+                    progress_bar(i, len(val_loader), f'[Epoch {epoch+1}][V][{i}]   Loss: {loss:.4e}   LR: {lr:.6f}')
+   
     print()        
-
     print(Fore.BLUE)
     print('*'*80)
     
-    logger_dict.update(keys[2], avg_loss)
-    logger_dict.update(keys[3], avg_acc1)
-    
-    writer.add_scalar("Loss/val", avg_loss, epoch)
-    writer.add_scalar("Acc/val", avg_acc1, epoch)
+    if not args.is_MAE:
+        logger_dict.update(keys[2], avg_loss)
+        logger_dict.update(keys[3], avg_acc1)
+        
+        writer.add_scalar("Loss/val", avg_loss, epoch)
+        writer.add_scalar("Acc/val", avg_acc1, epoch)
 
+    if args.is_MAE:
+        avg_acc1 = -loss
     
     return avg_acc1
 
@@ -477,8 +518,8 @@ if __name__ == '__main__':
     if args.is_Coord:
         model_name += "-Coord"
         
-    if not args.is_Transfer == "":
-        model_name += "-Trans"
+    if args.is_MAE:
+        model_name += "-MAE"
         
     model_name += f"-{args.tag}-{args.dataset}-LR[{args.lr}]-Seed{args.seed}"
     save_path = os.path.join(os.getcwd(), 'save', model_name)
