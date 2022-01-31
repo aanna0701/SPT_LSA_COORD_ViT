@@ -13,6 +13,7 @@ class ShiftedPatchTokenization(nn.Module):
         self.exist_class_t = exist_class_t
         self.is_Coord = is_Coord
         self.num_patches = num_patches
+        print(num_patches)
         self.num_patches = self.num_patches // (merging_size**2)
         
         self.patch_shifting = PatchShifting(merging_size)
