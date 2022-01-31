@@ -10,24 +10,20 @@ from .efficientnet import EfficientNetB0
 from .coatnet import *
 from .coatnet_2 import coatnet2_0, coatnet2_1
 from .coatnet_3 import coatnet3_0
-from .vit_imnet import ViT_trans
 
 def create_model(img_size, n_classes, args):
     if args.model == 'vit':
-        patch_size = 4 if img_size == 32 else 8
-        model = ViT(img_size=img_size, patch_size = patch_size, num_classes=n_classes, dim=192, 
-                    mlp_dim_ratio=2, depth=9, heads=12, dim_head=192//12,
-                    stochastic_depth=0.1, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
-    
-    elif args.model == 'vit-ti':
-        patch_size = 4 if img_size == 32 else 8
-        model = ViT_trans(img_size=224, img_size_trans=img_size, patch_size = 16,patch_size_trans = patch_size,
+        if not img_size == 224:
+            patch_size = 4 if img_size == 32 else 8
+            model = ViT(img_size=img_size, patch_size = patch_size, num_classes=n_classes, dim=192, 
+                        mlp_dim_ratio=2, depth=9, heads=12, dim_head=192//12,
+                        stochastic_depth=0.1, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
+        else:
+            model = ViT(img_size=224, img_size_trans=img_size, patch_size = 16,patch_size_trans = patch_size,
                           num_classes=1000, num_classes_trans=n_classes,dim=192, 
                     mlp_dim_ratio=4, depth=12, heads=3, dim_head=192//3,
                     stochastic_depth=0.1, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
-    
-    elif args.model == 'swin-t_imgnet':
-        model = SwinTransformer(is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
+
 
     elif args.model == 'cait_xxs24':       
         patch_size = 4 if img_size == 32 else 8
@@ -63,18 +59,22 @@ def create_model(img_size, n_classes, args):
     elif args.model =='t2t':
         model = T2T_ViT(img_size=img_size, num_classes=n_classes, drop_path_rate=0.1, 
                         is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
+    
         
     elif args.model =='swin_t':
-        depths = [2, 6, 4] if img_size == 32 else [2, 2, 6, 2]
-        num_heads = [3, 6, 12] if img_size == 32 else [3, 6, 12, 24]
-        mlp_ratio = 2
-        window_size = 4
-        embed_dim = 96
-        patch_size = 2
-            
-        model = SwinTransformer(img_size=img_size, window_size=window_size, drop_path_rate=0.1, embed_dim=embed_dim,
-                                patch_size=patch_size, mlp_ratio=mlp_ratio, depths=depths, num_heads=num_heads, num_classes=n_classes, 
-                                is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
+        if not img_size == 224:
+            depths = [2, 6, 4] if img_size == 32 else [2, 2, 6, 2]
+            num_heads = [3, 6, 12] if img_size == 32 else [3, 6, 12, 24]
+            mlp_ratio = 2
+            window_size = 4
+            embed_dim = 96
+            patch_size = 2
+                
+            model = SwinTransformer(img_size=img_size, window_size=window_size, drop_path_rate=0.1, embed_dim=embed_dim,
+                                    patch_size=patch_size, mlp_ratio=mlp_ratio, depths=depths, num_heads=num_heads, num_classes=n_classes, 
+                                    is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
+        else:
+            model = SwinTransformer(is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
         
     elif args.model =='coatnet_0':
         model = coatnet_0(img_size=img_size, n_classes=n_classes, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
