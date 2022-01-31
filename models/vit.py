@@ -187,7 +187,7 @@ class ViT(nn.Module):
         self.dim = dim
         self.num_classes = num_classes
         self.is_Coord = is_Coord
-       
+        print(self.num_patches)
         if not is_SPT:
             self.to_patch_embedding = nn.Sequential(
                 Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = patch_height, p2 = patch_width),
