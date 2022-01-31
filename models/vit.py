@@ -234,16 +234,12 @@ class ViT(nn.Module):
         flops = 0
         
         if not self.is_Coord:
-            print(self.num_patches * self.patch_dim * self.dim )
             flops += self.num_patches * self.patch_dim * self.dim 
         else:
-            print(self.to_patch_embedding.flops() )
             flops += self.to_patch_embedding.flops()        
-        print(self.transformer.flops()   )
+                
         flops += self.transformer.flops()           
-        print(self.dim    )
-        flops += self.dim    
-        print(self.dim * self.num_classes  )
+        flops += self.dim               # layer norm
         flops += self.dim * self.num_classes    # linear
         
         return flops
