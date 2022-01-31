@@ -6,13 +6,13 @@ import math
 from .Coord import CoordLinear
 
 class ShiftedPatchTokenization(nn.Module):
-    def __init__(self, num_patches, in_dim, dim, merging_size=2, exist_class_t=False, is_pe=False, is_Coord=False):
+    def __init__(self, input_size, in_dim, dim, merging_size=2, exist_class_t=False, is_pe=False, is_Coord=False):
         super().__init__()
         self.in_dim = in_dim
         self.dim = dim
         self.exist_class_t = exist_class_t
         self.is_Coord = is_Coord
-        self.num_patches = num_patches
+        self.num_patches = input_size
         self.num_patches = self.num_patches // (merging_size**2)
         print(self.num_patches)
         self.patch_shifting = PatchShifting(merging_size)
