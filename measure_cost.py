@@ -600,7 +600,11 @@ def main(args):
         
 
     elif args.type == 'flops':
-        if args.model in ['effiv2', 'regnet', 'effiv2_m', 'regnet_200mf', 'regnet_400mf', 'regnetY_200mf', 'res110', 'effib0']:
+        if args.model in ['vit', 'swin_t','swin_s','swin_b','swin_l', 'pit', 
+          'cait_xxs24', 'cait_xs24', 'cait_s24', 'cait_xxs36', 't2t', 'effiv2', 
+          'regnetX_400m', 'regnetY_4G', 'regnetY_8G', 'effiv2_m', 'regnetX_200m', 'regnetY_400m', 'regnetY_200m',
+          'coatnet_0', 'coatnet_1', 'coatnet_2', 'coatnet_3', 'coatnet2_0', 'coatnet2_1', 
+          'coatnet3_0']:
             # CNN flops
             
             with torch.cuda.device(GPU):
