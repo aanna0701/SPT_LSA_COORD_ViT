@@ -34,6 +34,7 @@ MODELS = ['vit', 'swin_t','swin_s','swin_b','swin_l', 'pit',
           'coatnet3_0']
 
 
+
 def init_parser():
     parser = argparse.ArgumentParser(description='CIFAR10 quick training script')
 
