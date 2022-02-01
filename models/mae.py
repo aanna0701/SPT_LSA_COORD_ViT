@@ -17,12 +17,13 @@ class MAE(nn.Module):
         decoder_heads = 8,
         decoder_dim_head = 64,
         mlp_ratio = 4,
-        is_SPT=False, is_LSA=False
+        is_SPT=False, is_LSA=False, is_Coord=False
     ):
         super().__init__()
         assert masking_ratio > 0 and masking_ratio < 1, 'masking ratio must be kept between 0 and 1'
         self.masking_ratio = masking_ratio
         self.is_SPT = is_SPT
+        self.is_Coord = is_Coord
         # extract some hyperparameters and functions from encoder (vision transformer to be trained)
 
         self.encoder = encoder
@@ -43,7 +44,7 @@ class MAE(nn.Module):
 
         self.mask_token = nn.Parameter(torch.randn(decoder_dim))
         self.decoder = Transformer(dim = decoder_dim, depth = decoder_depth, heads = decoder_heads, dim_head = decoder_dim_head, mlp_dim_ratio = mlp_ratio
-                                   ,is_LSA=is_LSA, num_patches=1)
+                                   ,is_LSA=is_LSA, is_Coord=is_Coord, num_patches=1)
      
         self.decoder_pos_emb = nn.Embedding(num_patches, decoder_dim)
         self.to_pixels = nn.Linear(decoder_dim, pixel_values_per_patch)
@@ -97,7 +98,7 @@ class MAE(nn.Module):
         # repeat mask tokens for number of masked, and add the positions using the masked indices derived above
 
         mask_tokens = repeat(self.mask_token, 'd -> b n d', b = batch, n = num_masked)
-        mask_tokens = mask_tokens + self.decoder_pos_emb(masked_indices)
+        mask_tokens = mask_tokens + self.decoder_pos_emb(masked_indices) if not self.is_Coord else mask_tokens
 
         # concat the masked tokens to the decoder tokens and attend with decoder
 
