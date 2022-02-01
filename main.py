@@ -289,7 +289,8 @@ def main(args):
         final_epoch = args.epochs
         args.epochs = final_epoch - (checkpoint['epoch'] + 1)
         
-    if os.path.isfile(os.path.join(save_path, 'mae_best.pth')):
+    if os.path.isfile(os.path.join(save_path+"-MAE", 'mae_best.pth')):
+        print(os.path.join(save_path+"-MAE", 'mae_best.pth'))
         print("Using MAE pretrained model !!!")
         checkpoint = torch.load(os.path.join(save_path, 'mae_best.pth'))
         model.load_state_dict(checkpoint['model_state_dict'])
@@ -527,12 +528,14 @@ if __name__ == '__main__':
         
     if args.is_Coord:
         model_name += "-Coord"
-        
+
+    model_name += f"-{args.tag}-{args.dataset}-LR[{args.lr}]-Seed{args.seed}"
+            
     if args.is_MAE:
         model_name += "-MAE"
-        
-    model_name += f"-{args.tag}-{args.dataset}-LR[{args.lr}]-Seed{args.seed}"
+    
     save_path = os.path.join(os.getcwd(), 'save', model_name)
+    
     if save_path:
         os.makedirs(save_path, exist_ok=True)
         
