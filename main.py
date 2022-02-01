@@ -143,8 +143,8 @@ def main(args):
         mae = MAE(
             encoder = model,
             masking_ratio = 0.75,   # the paper recommended 75% masked patches
-            decoder_dim = 192,      # paper showed good results with just 512
-            decoder_depth = 1       # anywhere from 1 to 8
+            decoder_dim = 96,      # paper showed good results with just 512
+            decoder_depth = 8       # anywhere from 1 to 8
         )
         mae.cuda(args.gpu)
    
