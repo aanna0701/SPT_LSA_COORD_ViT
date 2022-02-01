@@ -26,7 +26,7 @@ import warnings
 
 warnings.filterwarnings("ignore", category=Warning)
 
-best_acc1 = 0
+best_acc1 = -987654321
 MODELS = ['vit', 'swin_t','swin_s','swin_b','swin_l', 'pit', 
           'cait_xxs24', 'cait_xs24', 'cait_s24', 'cait_xxs36', 't2t', 'effiv2', 
           'regnetX_400m', 'regnetY_4G', 'regnetY_8G', 'effiv2_m', 'regnetX_200m', 'regnetY_400m', 'regnetY_200m',
@@ -129,7 +129,6 @@ def main(args):
     
     model = create_model(data_info['img_size'], data_info['n_classes'], args)
     
-        
     if args.is_MAE:
         args.ls = False
         args.sd = 0
@@ -289,7 +288,11 @@ def main(args):
         scheduler.load_state_dict(checkpoint['scheduler'])
         final_epoch = args.epochs
         args.epochs = final_epoch - (checkpoint['epoch'] + 1)
-    
+        
+    if os.path.isfile(os.path.join(save_path, 'mae_best.pth')):
+        checkpoint = torch.load(os.path.join(save_path, 'mae_best.pth'))
+        model.load_state_dict(checkpoint['model_state_dict'])
+        
     
     for epoch in tqdm(range(args.epochs)):
         lr = train(train_loader, model, criterion, optimizer, epoch, scheduler, args)
@@ -300,7 +303,7 @@ def main(args):
             'optimizer_state_dict': optimizer.state_dict(),
             'scheduler': scheduler.state_dict(), 
             }, 
-            os.path.join(save_path, 'checkpoint.pth'))
+            os.path.join(save_path, 'checkpoint.pth')if not args.is_MAE else os.path.join(save_path, 'mae_checkpoint.pth'))
         
         logger_dict.print()
         
@@ -313,9 +316,9 @@ def main(args):
                     'epoch': epoch,
                     'optimizer_state_dict': optimizer.state_dict(),
                     'scheduler': scheduler.state_dict(),
-                }, os.path.join(save_path, 'best.pth'))         
+                }, os.path.join(save_path, 'best.pth') if not args.is_MAE else os.path.join(save_path, 'mae_best.pth'))         
         
-        print(f'Best acc1 {best_acc1:.2f}')
+        print(f'Best acc1 {best_acc1:.6f}')
         print('*'*80)
         print(Style.RESET_ALL)        
         
@@ -418,6 +421,8 @@ def train(train_loader, model, criterion, optimizer, epoch, scheduler,  args):
 
         else:
             loss = mae(images)
+            n += images.size(0)
+            loss_val += float(loss.item() * images.size(0))
 
         optimizer.zero_grad()
         loss.backward()
@@ -430,7 +435,8 @@ def train(train_loader, model, criterion, optimizer, epoch, scheduler,  args):
                 avg_loss, avg_acc1 = (loss_val / n), (acc1_val / n)
                 progress_bar(i, len(train_loader),f'[Epoch {epoch+1}/{args.epochs}][T][{i}]   Loss: {avg_loss:.4e}   Top-1: {avg_acc1:6.2f}   LR: {lr:.7f}'+' '*10)
             else:
-                progress_bar(i, len(train_loader),f'[Epoch {epoch+1}/{args.epochs}][T][{i}]   Loss: {loss:.4e}   LR: {lr:.7f}'+' '*10)
+                avg_loss = (loss_val / n)
+                progress_bar(i, len(train_loader),f'[Epoch {epoch+1}/{args.epochs}][T][{i}]   Loss: {avg_loss:.4e}   LR: {lr:.7f}'+' '*10)
 
     if not args.is_MAE:
         logger_dict.update(keys[0], avg_loss)
@@ -463,13 +469,16 @@ def validate(val_loader, model, criterion, lr, args, epoch=None):
 
             else:
                 loss = mae(images)
+                n += images.size(0)
+                loss_val += float(loss.item() * images.size(0))
 
             if args.print_freq >= 0 and i % args.print_freq == 0:
                 if not args.is_MAE:
                     avg_loss, avg_acc1 = (loss_val / n), (acc1_val / n)
                     progress_bar(i, len(val_loader), f'[Epoch {epoch+1}][V][{i}]   Loss: {avg_loss:.4e}   Top-1: {avg_acc1:6.2f}   LR: {lr:.6f}')
                 else:    
-                    progress_bar(i, len(val_loader), f'[Epoch {epoch+1}][V][{i}]   Loss: {loss:.4e}   LR: {lr:.6f}')
+                    avg_loss = (loss_val / n)
+                    progress_bar(i, len(val_loader), f'[Epoch {epoch+1}][V][{i}]   Loss: {avg_loss:.4e}   LR: {lr:.6f}')
    
     print()        
     print(Fore.BLUE)
@@ -483,7 +492,7 @@ def validate(val_loader, model, criterion, lr, args, epoch=None):
         writer.add_scalar("Acc/val", avg_acc1, epoch)
 
     if args.is_MAE:
-        avg_acc1 = -loss
+        avg_acc1 = -avg_loss
     
     return avg_acc1
 
