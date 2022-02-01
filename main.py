@@ -145,7 +145,6 @@ def main(args):
             masking_ratio = 0.75,   # the paper recommended 75% masked patches
             decoder_dim = 192,      # paper showed good results with just 512
             decoder_depth = 4,       # anywhere from 1 to 8
-            decoder_depth = 1,
             decoder_heads = 12,
             decoder_dim_head = 16,
             is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord
