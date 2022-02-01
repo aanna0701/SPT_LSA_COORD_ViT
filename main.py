@@ -147,7 +147,7 @@ def main(args):
         from models.mae import MAE
         mae = MAE(
             encoder = model,
-            masking_ratio = args.masking_ratio,   # the paper recommended 75% masked patches
+            masking_ratio = args.MAE_ratio,   # the paper recommended 75% masked patches
             decoder_dim = 192,      # paper showed good results with just 512
             decoder_depth = 4,       # anywhere from 1 to 8
             decoder_heads = 12,
