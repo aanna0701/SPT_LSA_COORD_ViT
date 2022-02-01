@@ -141,7 +141,6 @@ def main(args):
         args.ra = 1
         args.aa = False
         args.re = 0
-        args.is_Coord = False
         # args.lr *= .1
         args.batch_size *= 4
         from models.mae import MAE
@@ -154,6 +153,7 @@ def main(args):
             decoder_dim_head = 16,
             is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord
         )
+        args.is_Coord = False
         mae.cuda(args.gpu)
         model = create_model(data_info['img_size'], data_info['n_classes'], args)
         
