@@ -290,7 +290,7 @@ def main(args):
         args.epochs = final_epoch - (checkpoint['epoch'] + 1)
     
     print(os.path.join(save_path+"-MAE", 'mae_best.pth'))    
-    print(os.path.isfile(os.path.join(save_path+"-MAE", 'mae_best.pth'))    
+    print(os.path.isfile(os.path.join(save_path+"-MAE", 'mae_best.pth')))    
     if os.path.isfile(os.path.join(save_path+"-MAE", 'mae_best.pth')):
         
         print("Using MAE pretrained model !!!")
