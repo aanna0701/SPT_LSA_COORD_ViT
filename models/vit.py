@@ -104,8 +104,9 @@ class Attention(nn.Module):
             
         if is_LSA:
             self.scale = nn.Parameter(self.scale*torch.ones(heads))    
-            self.mask = torch.eye(self.num_patches+1, self.num_patches+1)
-            self.mask = torch.nonzero((self.mask == 1), as_tuple=False)
+            # self.mask = torch.eye(self.num_patches+1, self.num_patches+1)
+            # self.mask = torch.nonzero((self.mask == 1), as_tuple=False)
+            # torch.nonzero((torch.eye(self.num_patches+1, self.num_patches+1) == 1), as_tuple=False)
         else:
             self.mask = None
 
@@ -114,8 +115,7 @@ class Attention(nn.Module):
         qkv = self.to_qkv(x).chunk(3, dim = -1)
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = h), qkv)
         
-        print(x.shape)
-        print(self.num_patches)
+        mask = torch.nonzero((torch.eye(n, n) == 1), as_tuple=False)
 
         if self.mask is None:
             dots = einsum('b h i d, b h j d -> b h i j', q, k) * self.scale
@@ -123,7 +123,7 @@ class Attention(nn.Module):
         else:
             scale = self.scale
             dots = torch.mul(einsum('b h i d, b h j d -> b h i j', q, k), scale.unsqueeze(0).unsqueeze(-1).unsqueeze(-1).expand((b, h, 1, 1)))
-            dots[:, :, self.mask[:, 0], self.mask[:, 1]] = -987654321
+            dots[:, :, mask, mask] = -987654321
 
         attn = self.attend(dots)
         out = einsum('b h i j, b h j d -> b h i d', attn, v) 

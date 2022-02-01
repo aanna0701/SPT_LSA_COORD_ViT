@@ -31,6 +31,7 @@ class MAE(nn.Module):
         num_patches, encoder_dim = encoder.pos_embedding.shape[-2:] # (B, N^2+1, d)
 
         
+        
         if not is_SPT:
             self.to_patch, self.patch_to_emb = encoder.to_patch_embedding[:2]
             pixel_values_per_patch = self.patch_to_emb.weight.shape[-1]
