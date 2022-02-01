@@ -188,7 +188,7 @@ class ViT(nn.Module):
         self.num_classes = num_classes
         self.is_Coord = is_Coord
         self.is_SPT = is_SPT
-        if not i:
+        if not is_SPT:
             self.to_patch_embedding = nn.Sequential(
                 Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = patch_height, p2 = patch_width),
                 nn.Linear(self.patch_dim, self.dim)
