@@ -113,6 +113,9 @@ class Attention(nn.Module):
         b, n, _, h = *x.shape, self.heads
         qkv = self.to_qkv(x).chunk(3, dim = -1)
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = h), qkv)
+        
+        print(x.shape)
+        print(self.num_patches)
 
         if self.mask is None:
             dots = einsum('b h i d, b h j d -> b h i j', q, k) * self.scale
