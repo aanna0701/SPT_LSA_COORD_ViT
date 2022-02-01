@@ -141,7 +141,6 @@ def main(args):
         args.ra = 1
         args.aa = False
         args.re = 0
-        is_Coord_tmp = args.is_Coord
         args.is_Coord = False
         # args.lr *= .1
         args.batch_size *= 4
@@ -156,7 +155,7 @@ def main(args):
             decoder_depth = 4,       # anywhere from 1 to 8
             decoder_heads = 12,
             decoder_dim_head = 16,
-            is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=is_Coord_tmp
+            is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord
         )
         mae.cuda(args.gpu)
         
