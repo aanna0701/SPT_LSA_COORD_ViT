@@ -121,7 +121,7 @@ def init_parser():
 
 
 def main(args):
-    global best_acc1, mae
+    global best_acc1, mae, save_path
     
     torch.cuda.set_device(args.gpu)
 
@@ -295,6 +295,7 @@ def main(args):
         print("Using MAE pretrained model !!!")
         checkpoint = torch.load(os.path.join(save_path+"-MAE", 'mae_best.pth'))
         model.load_state_dict(checkpoint['model_state_dict'])
+        save_path = save_path + "-MAE"
 
     
     for epoch in tqdm(range(args.epochs)):
