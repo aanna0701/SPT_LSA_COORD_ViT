@@ -293,7 +293,7 @@ def main(args):
     if os.path.isfile(os.path.join(save_path+"-MAE", 'mae_best.pth')):
         print(os.path.join(save_path+"-MAE", 'mae_best.pth'))
         print("Using MAE pretrained model !!!")
-        checkpoint = torch.load(os.path.join(save_path, 'mae_best.pth'))
+        checkpoint = torch.load(os.path.join(save_path+"-MAE", 'mae_best.pth'))
         model.load_state_dict(checkpoint['model_state_dict'])
 
     
