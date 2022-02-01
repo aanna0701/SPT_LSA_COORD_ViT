@@ -17,21 +17,18 @@ class MAE(nn.Module):
         decoder_heads = 8,
         decoder_dim_head = 64,
         mlp_ratio = 4,
-        is_SPT=False, is_LSA=False, is_Coord=False
+        is_SPT=False, is_LSA=False
     ):
         super().__init__()
         assert masking_ratio > 0 and masking_ratio < 1, 'masking ratio must be kept between 0 and 1'
         self.masking_ratio = masking_ratio
-        self.is_Coord = is_Coord
         self.is_SPT = is_SPT
         # extract some hyperparameters and functions from encoder (vision transformer to be trained)
 
         self.encoder = encoder
-        if not is_Coord:
-            num_patches, encoder_dim = encoder.pos_embedding.shape[-2:] # (B, N^2+1, d)
-        else:
-            num_patches = encoder.num_patches
-            encoder_dim = encoder.dim
+
+        num_patches, encoder_dim = encoder.pos_embedding.shape[-2:] # (B, N^2+1, d)
+
         
         if not is_SPT:
             self.to_patch, self.patch_to_emb = encoder.to_patch_embedding[:2]
@@ -42,17 +39,15 @@ class MAE(nn.Module):
             pixel_values_per_patch = encoder.dim
 
         # decoder parameters
-        if not is_Coord:
-            self.enc_to_dec = nn.Linear(encoder_dim, decoder_dim) if encoder_dim != decoder_dim else nn.Identity()
-        else:
-            self.enc_to_dec = CoordLinear(encoder_dim, decoder_dim) if encoder_dim != decoder_dim else nn.Identity()
+        self.enc_to_dec = nn.Linear(encoder_dim, decoder_dim) if encoder_dim != decoder_dim else nn.Identity()
+
         self.mask_token = nn.Parameter(torch.randn(decoder_dim))
         self.decoder = Transformer(dim = decoder_dim, depth = decoder_depth, heads = decoder_heads, dim_head = decoder_dim_head, mlp_dim_ratio = mlp_ratio
-                                   ,is_LSA=is_LSA, is_Coord=is_Coord, num_patches=1)
-        if not is_Coord:
-            self.decoder_pos_emb = nn.Embedding(num_patches, decoder_dim)
-        self.to_pixels = nn.Linear(decoder_dim, pixel_values_per_patch) if not is_Coord else CoordLinear(decoder_dim, pixel_values_per_patch)
-
+                                   ,is_LSA=is_LSA, num_patches=1)
+     
+        self.decoder_pos_emb = nn.Embedding(num_patches, decoder_dim)
+        self.to_pixels = nn.Linear(decoder_dim, pixel_values_per_patch)
+        
     def forward(self, img):
         device = img.device
 
@@ -70,8 +65,7 @@ class MAE(nn.Module):
             batch, num_patches, *_ = patches.shape
             tokens = self.patch_to_emb(img)
         
-        if not self.is_Coord:
-            tokens = tokens + self.encoder.pos_embedding[:, 1:(num_patches + 1)]
+        tokens = tokens + self.encoder.pos_embedding[:, 1:(num_patches + 1)]
 
         # calculate of patches needed to be masked, and get random indices, dividing it up for mask vs unmasked
 
@@ -98,12 +92,12 @@ class MAE(nn.Module):
 
         # reapply decoder position embedding to unmasked tokens
 
-        decoder_tokens = decoder_tokens + self.decoder_pos_emb(unmasked_indices) if not self.is_Coord else decoder_tokens
+        decoder_tokens = decoder_tokens + self.decoder_pos_emb(unmasked_indices)
 
         # repeat mask tokens for number of masked, and add the positions using the masked indices derived above
 
         mask_tokens = repeat(self.mask_token, 'd -> b n d', b = batch, n = num_masked)
-        mask_tokens = mask_tokens + self.decoder_pos_emb(masked_indices) if not self.is_Coord else mask_tokens
+        mask_tokens = mask_tokens + self.decoder_pos_emb(masked_indices)
 
         # concat the masked tokens to the decoder tokens and attend with decoder
 

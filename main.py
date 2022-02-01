@@ -116,6 +116,10 @@ def init_parser():
     parser.add_argument('--is_Coord', action='store_true', help='CoordLinear')
     
     parser.add_argument('--is_MAE', action='store_true', help='Masked Auto Encoder')
+    
+    parser.add_argument('--MAE_ratio', default=0.75, type=float,help='Masking ratio')
+    
+    parser.add_argument('--MAE_path', default='', type=str,help='MAE path')
 
     return parser
 
@@ -137,12 +141,13 @@ def main(args):
         args.ra = 1
         args.aa = False
         args.re = 0
+        args.is_Coord = False
         # args.lr *= .1
         args.batch_size *= 4
         from models.mae import MAE
         mae = MAE(
             encoder = model,
-            masking_ratio = 0.75,   # the paper recommended 75% masked patches
+            masking_ratio = args.masking_ratio,   # the paper recommended 75% masked patches
             decoder_dim = 192,      # paper showed good results with just 512
             decoder_depth = 4,       # anywhere from 1 to 8
             decoder_heads = 12,
@@ -150,7 +155,8 @@ def main(args):
             is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord
         )
         mae.cuda(args.gpu)
-   
+        model = create_model(data_info['img_size'], data_info['n_classes'], args)
+        
     model.cuda(args.gpu)  
         
     print(Fore.GREEN+'*'*80)
@@ -293,12 +299,12 @@ def main(args):
         final_epoch = args.epochs
         args.epochs = final_epoch - (checkpoint['epoch'] + 1)
         
-    if os.path.isfile(os.path.join(save_path+"-MAE", 'mae_best.pth')):
-        print(os.path.join(save_path+"-MAE", 'mae_best.pth'))
+    if not args.MAE_path == '':
+        print(os.path.join(args.MAE_path, 'mae_best.pth'))
         print("Using MAE pretrained model !!!")
-        checkpoint = torch.load(os.path.join(save_path+"-MAE", 'mae_checkpoint.pth'))
+        checkpoint = torch.load(os.path.join(args.MAE_path, 'mae_checkpoint.pth'))
         model.load_state_dict(checkpoint['model_state_dict'])
-        save_path = save_path + "-MAE"
+        save_path = args.MAE_path
 
     
     for epoch in tqdm(range(args.epochs)):
