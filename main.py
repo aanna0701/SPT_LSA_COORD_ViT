@@ -144,7 +144,7 @@ def main(args):
             encoder = model,
             masking_ratio = 0.75,   # the paper recommended 75% masked patches
             decoder_dim = 96,      # paper showed good results with just 512
-            decoder_depth = 8       # anywhere from 1 to 8
+            decoder_depth = 4       # anywhere from 1 to 8
         )
         mae.cuda(args.gpu)
    
