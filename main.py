@@ -137,7 +137,7 @@ def main(args):
         args.ra = 1
         args.aa = False
         args.re = 0
-        args.lr *= .1
+        # args.lr *= .1
         args.batch_size *= 4
         from models.mae import MAE
         mae = MAE(
