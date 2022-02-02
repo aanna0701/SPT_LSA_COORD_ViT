@@ -326,7 +326,7 @@ def main(args):
         )
         model.mlp_head.cuda(args.gpu)
         optimizer = torch.optim.SGD(model.parameters(), lr=0.01, weight_decay=0.0001)
-        # scheduler = build_scheduler(args, optimizer, len(train_loader))
+        scheduler = build_scheduler(args, optimizer, len(train_loader))
         
     print(model)
     
