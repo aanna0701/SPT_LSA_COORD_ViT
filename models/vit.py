@@ -101,7 +101,7 @@ class Attention(nn.Module):
                 CoordLinear(self.inner_dim, self.dim),
                 nn.Dropout(dropout)
             ) if project_out else nn.Identity()
-            
+        self.is_LSA = is_LSA  
         if is_LSA:
             self.scale = nn.Parameter(self.scale*torch.ones(heads))    
             # self.mask = torch.eye(self.num_patches+1, self.num_patches+1)
@@ -117,7 +117,7 @@ class Attention(nn.Module):
         
         mask = torch.nonzero((torch.eye(n, n) == 1), as_tuple=False)
 
-        if self.mask is None:
+        if not self.is_LSA:
             dots = einsum('b h i d, b h j d -> b h i j', q, k) * self.scale
         
         else:

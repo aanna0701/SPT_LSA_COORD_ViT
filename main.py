@@ -120,6 +120,8 @@ def init_parser():
     parser.add_argument('--MAE_ratio', default=0.75, type=float,help='Masking ratio')
     
     parser.add_argument('--MAE_path', default='', type=str,help='MAE path')
+    
+    parser.add_argument('--fine_path', default='', type=str,help='MAE path')
 
     return parser
 
@@ -141,10 +143,9 @@ def main(args):
         args.ra = 1
         args.aa = False
         args.re = 0
-        is_Coord_tmp = args.is_Coord
         args.is_Coord = False
         # args.lr *= .1
-        args.batch_size *= 4
+        # args.batch_size *= 4
         
         model = create_model(data_info['img_size'], data_info['n_classes'], args)
         
@@ -156,7 +157,7 @@ def main(args):
             decoder_depth = 4,       # anywhere from 1 to 8
             decoder_heads = 12,
             decoder_dim_head = 16,
-            is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=is_Coord_tmp
+            is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord
         )
         mae.cuda(args.gpu)
         
@@ -304,12 +305,18 @@ def main(args):
         args.epochs = final_epoch - (checkpoint['epoch'] + 1)
         
     if not args.MAE_path == '':
-        print(os.path.join(args.MAE_path, 'mae_best.pth'))
+        print(os.path.join(args.MAE_path, 'mae_checkpoint.pth'))
         print("Using MAE pretrained model !!!")
         checkpoint = torch.load(os.path.join(args.MAE_path, 'mae_checkpoint.pth'))
         model.load_state_dict(checkpoint['model_state_dict'])
         save_path = args.MAE_path
 
+    if not args.fine_path == '':
+        print(args.fine_path)
+        print("Using Finetuning !!!")
+        checkpoint = torch.load(args.fine_path)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        
     
     for epoch in tqdm(range(args.epochs)):
         lr = train(train_loader, model, criterion, optimizer, epoch, scheduler, args)
@@ -474,7 +481,6 @@ def validate(val_loader, model, criterion, lr, args, epoch=None):
                 images = images.cuda(args.gpu, non_blocking=True)
                 target = target.cuda(args.gpu, non_blocking=True)
 
-            
             if not args.is_MAE:
                 output = model(images)
                 loss = criterion(output, target)
@@ -548,6 +554,9 @@ if __name__ == '__main__':
             
     if args.is_MAE:
         model_name += "-MAE"
+        
+    if not args.fine_path == '':
+        model_name += "-Finetuning"
     
     save_path = os.path.join(os.getcwd(), 'save', model_name)
     

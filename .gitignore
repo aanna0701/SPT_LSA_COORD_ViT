@@ -2,3 +2,4 @@ dataset/*
 tensorboard/*
 save/*
 models/conv_cifar_pytoch/*
+*.pth

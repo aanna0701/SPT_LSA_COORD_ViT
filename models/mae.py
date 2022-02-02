@@ -38,7 +38,7 @@ class MAE(nn.Module):
         else:
             self.to_patch = encoder.to_patch_embedding.merging[0]
             self.patch_to_emb = encoder.to_patch_embedding
-            pixel_values_per_patch = encoder.dim
+            pixel_values_per_patch = encoder.patch_dim
 
         # decoder parameters
         self.enc_to_dec = nn.Linear(encoder_dim, decoder_dim) if encoder_dim != decoder_dim else nn.Identity()
@@ -111,6 +111,7 @@ class MAE(nn.Module):
         mask_tokens = decoded_tokens[:, :num_masked]
         pred_pixel_values = self.to_pixels(mask_tokens)
 
+        
         # calculate reconstruction loss
 
         recon_loss = F.mse_loss(pred_pixel_values, masked_patches)
