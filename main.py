@@ -317,6 +317,10 @@ def main(args):
         print("Using Finetuning !!!")
         checkpoint = torch.load(args.fine_path)
         model.load_state_dict(checkpoint['model'])
+        model.mlp_head = nn.Sequential(
+            nn.LayerNorm(model.dim),
+            nn.Linear(model.dim, 1000)
+        )
         
     
     for epoch in tqdm(range(args.epochs)):
