@@ -316,7 +316,7 @@ def main(args):
         print(args.fine_path)
         print("Using Finetuning !!!")
         checkpoint = torch.load(args.fine_path)
-        model.load_state_dict(checkpoint['model_state_dict'])
+        model.load_state_dict(checkpoint['model'])
         
     
     for epoch in tqdm(range(args.epochs)):
