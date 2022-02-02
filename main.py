@@ -162,6 +162,9 @@ def main(args):
         )
         mae.cuda(args.gpu)
         
+    if not args.fine_path == '':
+        model = create_model(224, 1000)
+        
         
     model.cuda(args.gpu)  
         
@@ -289,7 +292,7 @@ def main(args):
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scheduler = build_scheduler(args, optimizer, len(train_loader))
     
-    summary(model, (3, data_info['img_size'], data_info['img_size']))
+    # summary(model, (3, data_info['img_size'], data_info['img_size']))
     
     print()
     print("Beginning training")
@@ -319,11 +322,12 @@ def main(args):
         model.load_state_dict(checkpoint['model'])
         model.mlp_head = nn.Sequential(
             nn.LayerNorm(model.dim),
-            nn.Linear(model.dim, 1000)
+            nn.Linear(model.dim, data_info['n_classes'])
         )
         model.mlp_head.cuda(args.gpu)
         optimizer = torch.optim.SGD(model.parameters(), lr=0.01, weight_decay=0.0001)
         
+    print(model)
     
     for epoch in tqdm(range(args.epochs)):
         lr = train(train_loader, model, criterion, optimizer, epoch, scheduler, args)
