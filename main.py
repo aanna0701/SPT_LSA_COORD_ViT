@@ -163,7 +163,7 @@ def main(args):
         mae.cuda(args.gpu)
         
     if not args.fine_path == '':
-        model = create_model(224, 1000)
+        model = create_model(224, 1000, args)
         
         
     model.cuda(args.gpu)  
