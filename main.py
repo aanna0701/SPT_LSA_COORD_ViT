@@ -322,6 +322,7 @@ def main(args):
             nn.Linear(model.dim, 1000)
         )
         model.mlp_head.cuda(args.gpu)
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.01, weight_decay=0.0001)
         
     
     for epoch in tqdm(range(args.epochs)):
@@ -385,7 +386,6 @@ def train(train_loader, model, criterion, optimizer, epoch, scheduler,  args):
                     
                     loss =  mixup_criterion(criterion, output, y_a, y_b, lam)
                     
-                    
                 else:
                     output = model(images)
                     
@@ -401,8 +401,6 @@ def train(train_loader, model, criterion, optimizer, epoch, scheduler,  args):
                     
                     loss =  mixup_criterion(criterion, output, y_a, y_b, lam)
                     
-                    
-                
                 else:
                     output = model(images)
                     
@@ -422,7 +420,6 @@ def train(train_loader, model, criterion, optimizer, epoch, scheduler,  args):
                         output = model(images)
                         
                         loss =  mixup_criterion(criterion, output, y_a, y_b, lam)
-                        
                         
                     # Mixup
                     else:
