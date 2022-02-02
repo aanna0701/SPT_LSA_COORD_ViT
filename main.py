@@ -135,6 +135,7 @@ def main(args):
     
     model = create_model(data_info['img_size'], data_info['n_classes'], args)
     
+    
     if args.is_MAE:
         args.ls = False
         args.sd = 0
