@@ -321,6 +321,7 @@ def main(args):
             nn.LayerNorm(model.dim),
             nn.Linear(model.dim, 1000)
         )
+        model.mlp_head.cuda(args.gpu)
         
     
     for epoch in tqdm(range(args.epochs)):
