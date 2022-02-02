@@ -143,7 +143,7 @@ def main(args):
         args.re = 0
         args.is_Coord = False
         # args.lr *= .1
-        args.batch_size *= 4
+        # args.batch_size *= 4
         
         model = create_model(data_info['img_size'], data_info['n_classes'], args)
         
