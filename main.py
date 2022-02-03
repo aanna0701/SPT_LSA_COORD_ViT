@@ -321,10 +321,14 @@ def main(args):
         checkpoint = torch.load(args.fine_path)
         model.load_state_dict(checkpoint['model'], strict=False)
         model.head = nn.Sequential(
-            nn.LayerNorm(model.num_features),
-            nn.Linear(model.num_features, data_info['n_classes'])
+            nn.LayerNorm(model.num_features) if not args.model == 'vit' else nn.nn.LayerNorm(model.dim),
+            nn.Linear(model.num_features, data_info['n_classes'] if not args.model == 'vit' else nn.Linear(model.dim, data_info['n_classes']))
         )
-        model.head.cuda(args.gpu)
+        
+        if args.model == 'vit':
+            model.mlp_head.cuda(args.gpu)
+        else:
+            model.head.cuda(args.gpu)
         # optimizer = torch.optim.SGD(model.parameters(), lr=0.01, weight_decay=0.0001)
         # scheduler = build_scheduler(args, optimizer, len(train_loader))
         
