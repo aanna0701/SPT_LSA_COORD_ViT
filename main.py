@@ -334,7 +334,7 @@ def main(args):
                 nn.Linear(model.num_features, data_info['n_classes'])
             )
         else:
-            model.head = nn.Sequential(
+            model.mlp_head = nn.Sequential(
                 nn.LayerNorm(model.dim),
                 nn.Linear(model.dim, data_info['n_classes'])
             )
