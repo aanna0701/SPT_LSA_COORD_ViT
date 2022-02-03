@@ -318,7 +318,7 @@ def main(args):
     if not args.fine_path == '':
         print(args.fine_path)
         print("Using Finetuning !!!")
-        print(args.model)
+        print(args.model == 'vit')
         checkpoint = torch.load(args.fine_path)
         model.load_state_dict(checkpoint['model'], strict=False)
         model.head = nn.Sequential(
