@@ -320,10 +320,16 @@ def main(args):
         print("Using Finetuning !!!")
         checkpoint = torch.load(args.fine_path)
         model.load_state_dict(checkpoint['model'], strict=False)
-        model.head = nn.Sequential(
-            nn.LayerNorm(model.num_features) if not args.model == 'vit' else nn.LayerNorm(model.dim),
-            nn.Linear(model.num_features, data_info['n_classes']) if not args.model == 'vit' else nn.Linear(model.dim, data_info['n_classes'])
-        )
+        if not args.model == 'vit':
+            model.head = nn.Sequential(
+                nn.LayerNorm(model.num_features),
+                nn.Linear(model.num_features, data_info['n_classes'])
+            )
+        else:
+            model.head = nn.Sequential(
+                nn.LayerNorm(model.dim),
+                nn.Linear(model.dim, data_info['n_classes'])
+            )
         
         if args.model == 'vit':
             model.mlp_head.cuda(args.gpu)
