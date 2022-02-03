@@ -417,7 +417,7 @@ class BasicLayer(nn.Module):
             if not is_SPT:
                 self.downsample = PatchMerging(input_resolution, dim=dim, norm_layer=norm_layer)
             else:
-                self.downsample = ShiftedPatchTokenization(input_resolution[0]*input_resolution[1], dim, dim*2, 2)
+                self.downsample = ShiftedPatchTokenization(input_resolution[0]*input_resolution[1], dim, dim*2, 2, is_Coord=is_Coord)
                     
         else:
             self.downsample = None
@@ -542,7 +542,7 @@ class SwinTransformer(nn.Module):
             self.img_resolution = self.patch_embed.patches_resolution
 
         else:
-            self.patch_embed = ShiftedPatchTokenization(img_size**2, 3, embed_dim, patch_size, is_pe=True)
+            self.patch_embed = ShiftedPatchTokenization(img_size**2, 3, embed_dim, patch_size, is_pe=True, is_Coord=is_Coord)
             self.img_resolution = (img_size//patch_size, img_size//patch_size)  
         
         # absolute position embedding

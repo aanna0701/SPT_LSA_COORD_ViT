@@ -245,7 +245,10 @@ def main(args):
             ]
             
         print('*'*80 + Style.RESET_ALL)
-        
+    
+    augmentations += [                
+            transforms.ToTensor(),
+            *normalize]  
 
     if args.re > 0:
         from utils.random_erasing import RandomErasing
@@ -254,10 +257,10 @@ def main(args):
         print('*'*80+Style.RESET_ALL)    
         
         
-        augmentations += [                
-            transforms.ToTensor(),
-            *normalize,
-            RandomErasing(probability = args.re, sh = args.re_sh, r1 = args.re_r1, mean=data_info['stat'][0])]
+        augmentations += [     
+            RandomErasing(probability = args.re, sh = args.re_sh, r1 = args.re_r1, mean=data_info['stat'][0])
+            ]
+              
 
     
     if args.is_MAE:
