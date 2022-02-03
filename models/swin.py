@@ -588,7 +588,7 @@ class SwinTransformer(nn.Module):
 
     
     def forward_features(self, x):
-    
+        
         k = 0        
         x = self.patch_embed(x)   
         if not self.is_Coord:
@@ -606,8 +606,11 @@ class SwinTransformer(nn.Module):
         return x
 
     def forward(self, x):
+        print(x.shape)
         x = self.forward_features(x)
+        print(x.shape)
         x = self.head(x)
+        print(x.shape)
         return x
 
     def flops(self):
