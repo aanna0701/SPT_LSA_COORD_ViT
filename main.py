@@ -224,7 +224,7 @@ def main(args):
             from utils.autoaug import CIFAR10Policy
             augmentations += [
                 
-                transforms.RandomCrop(data_info['img_size'], padding=4) if not args.fine_path else transforms.Resize(224),
+                transforms.RandomCrop(data_info['img_size'], padding=4),
                 transforms.RandomHorizontalFlip(),
                 CIFAR10Policy()
             ]
@@ -234,7 +234,7 @@ def main(args):
             from utils.autoaug import SVHNPolicy
             augmentations += [
                 
-              transforms.RandomCrop(data_info['img_size'], padding=4) if not args.fine_path else transforms.Resize(224),
+              transforms.RandomCrop(data_info['img_size'], padding=4),
                 transforms.RandomHorizontalFlip(),
                 SVHNPolicy()
             ]
@@ -242,7 +242,15 @@ def main(args):
         else:
             from utils.autoaug import ImageNetPolicy
             augmentations += [                
-              transforms.RandomCrop(data_info['img_size'], padding=4) if not args.fine_path else transforms.Resize(224),
+              transforms.RandomCrop(data_info['img_size'], padding=4),
+                transforms.RandomHorizontalFlip(),
+                ImageNetPolicy()
+            ]
+        
+        if not args.fine_path == "":
+            from utils.autoaug import ImageNetPolicy
+            augmentations = [                
+              transforms.RandomCrop(224),
                 transforms.RandomHorizontalFlip(),
                 ImageNetPolicy()
             ]

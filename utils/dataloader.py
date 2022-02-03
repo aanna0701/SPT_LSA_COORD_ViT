@@ -57,7 +57,7 @@ def dataload(args, augmentations, normalize, data_info):
             root=args.data_path, train=True, download=True, transform=augmentations)
         val_dataset = datasets.CIFAR10(
             root=args.data_path, train=False, download=False, transform=transforms.Compose([
-            transforms.Resize(data_info['img_size']),
+            transforms.Resize(data_info['img_size']) if not args.fine_path =='' else transforms.Resize(224),
             transforms.ToTensor(),
             *normalize]))
         
@@ -67,7 +67,7 @@ def dataload(args, augmentations, normalize, data_info):
             root=args.data_path, train=True, download=True, transform=augmentations)
         val_dataset = datasets.CIFAR100(
             root=args.data_path, train=False, download=False, transform=transforms.Compose([
-            transforms.Resize(data_info['img_size']),
+            transforms.Resize(data_info['img_size']) if not args.fine_path =='' else transforms.Resize(224),
             transforms.ToTensor(),
             *normalize]))
         
@@ -77,7 +77,7 @@ def dataload(args, augmentations, normalize, data_info):
             root=args.data_path, split='train', download=True, transform=augmentations)
         val_dataset = datasets.SVHN(
             root=args.data_path, split='test', download=True, transform=transforms.Compose([
-            transforms.Resize(data_info['img_size']),
+            transforms.Resize(data_info['img_size']) if not args.fine_path =='' else transforms.Resize(224),
             transforms.ToTensor(),
             *normalize]))
         
@@ -87,6 +87,8 @@ def dataload(args, augmentations, normalize, data_info):
         val_dataset = datasets.ImageFolder(
             root=os.path.join(args.data_path, 'tiny_imagenet', 'val'), 
             transform=transforms.Compose([
-            transforms.Resize(data_info['img_size']), transforms.ToTensor(), *normalize]))
+            transforms.Resize(data_info['img_size']) if not args.fine_path =='' else transforms.Resize(224), 
+            transforms.ToTensor(), 
+            *normalize]))
     
     return train_dataset, val_dataset
