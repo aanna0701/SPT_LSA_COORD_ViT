@@ -216,8 +216,9 @@ def main(args):
     augmentations = []
     
     augmentations += [                
-            transforms.RandomCrop(data_info['img_size'], padding=4),
-            transforms.RandomHorizontalFlip()]
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomCrop(data_info['img_size'], padding=4)
+            ]
     
     if args.aa == True:
         print(Fore.YELLOW+'*'*80)
@@ -226,7 +227,7 @@ def main(args):
         if 'CIFAR' in args.dataset:
             print("CIFAR Policy")
             from utils.autoaug import CIFAR10Policy
-            augmentations += [
+            augmentations += [   
                 CIFAR10Policy()
             ]
             
@@ -242,15 +243,6 @@ def main(args):
             augmentations += [                
                 ImageNetPolicy()
             ]
-
-        if not args.fine_path == "":
-                from utils.autoaug import ImageNetPolicy
-                augmentations = [                
-                    transforms.Resize(224),
-                    transforms.RandomHorizontalFlip(),
-                    ImageNetPolicy()
-                ]        
-        
             
         print('*'*80 + Style.RESET_ALL)
         
@@ -259,21 +251,21 @@ def main(args):
         from utils.random_erasing import RandomErasing
         print(Fore.YELLOW + '*'*80)
         logger.debug(f'Random erasing({args.re}) used ')
-        print('*'*80+Style.RESET_ALL)   
-                
-        augmentations += [    
-            RandomErasing(probability = args.re, sh = args.re_sh, r1 = args.re_r1, mean=data_info['stat'][0])
-        ]
+        print('*'*80+Style.RESET_ALL)    
+        
+        
+        augmentations += [                
+            transforms.ToTensor(),
+            *normalize,
+            RandomErasing(probability = args.re, sh = args.re_sh, r1 = args.re_r1, mean=data_info['stat'][0])]
+
     
     if args.is_MAE:
         augmentations = [
-            transforms.RandomCrop(data_info['img_size'], padding=4),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             *normalize
         ]
-        
-
     
     augmentations = transforms.Compose(augmentations)
       
@@ -325,7 +317,7 @@ def main(args):
                 nn.Linear(model.num_features, data_info['n_classes'])
             )
         else:
-            model.mlp_head = nn.Sequential(
+            model.head = nn.Sequential(
                 nn.LayerNorm(model.dim),
                 nn.Linear(model.dim, data_info['n_classes'])
             )
