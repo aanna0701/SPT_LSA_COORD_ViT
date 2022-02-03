@@ -606,11 +606,8 @@ class SwinTransformer(nn.Module):
         return x
 
     def forward(self, x):
-        print(x.shape)
         x = self.forward_features(x)
-        print(x.shape)
         x = self.head(x)
-        print(x.shape)
         return x
 
     def flops(self):
