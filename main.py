@@ -215,6 +215,10 @@ def main(args):
     '''
     augmentations = []
     
+    augmentations += [                
+            transforms.RandomCrop(data_info['img_size'], padding=4),
+            transforms.RandomHorizontalFlip()]
+    
     if args.aa == True:
         print(Fore.YELLOW+'*'*80)
         logger.debug('Autoaugmentation used')      
@@ -223,9 +227,6 @@ def main(args):
             print("CIFAR Policy")
             from utils.autoaug import CIFAR10Policy
             augmentations += [
-                
-                transforms.RandomCrop(data_info['img_size'], padding=4),
-                transforms.RandomHorizontalFlip(),
                 CIFAR10Policy()
             ]
             
@@ -233,20 +234,22 @@ def main(args):
             print("SVHN Policy")    
             from utils.autoaug import SVHNPolicy
             augmentations += [
-                
-              transforms.RandomCrop(data_info['img_size'], padding=4),
-                transforms.RandomHorizontalFlip(),
                 SVHNPolicy()
             ]
                     
         else:
             from utils.autoaug import ImageNetPolicy
             augmentations += [                
-              transforms.RandomCrop(data_info['img_size'], padding=4),
-                transforms.RandomHorizontalFlip(),
                 ImageNetPolicy()
             ]
-        
+
+        if not args.fine_path == "":
+                from utils.autoaug import ImageNetPolicy
+                augmentations = [                
+                    transforms.Resize(224),
+                    transforms.RandomHorizontalFlip(),
+                    ImageNetPolicy()
+                ]        
         
             
         print('*'*80 + Style.RESET_ALL)
@@ -256,35 +259,21 @@ def main(args):
         from utils.random_erasing import RandomErasing
         print(Fore.YELLOW + '*'*80)
         logger.debug(f'Random erasing({args.re}) used ')
-        print('*'*80+Style.RESET_ALL)    
-        
-        
-        augmentations += [                
-            transforms.ToTensor(),
-            *normalize,
-            RandomErasing(probability = args.re, sh = args.re_sh, r1 = args.re_r1, mean=data_info['stat'][0])]
-    
-    else:
-        augmentations += [                
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomCrop(data_info['img_size'], padding=4),
-            transforms.ToTensor(),
-            *normalize]
+        print('*'*80+Style.RESET_ALL)   
+                
+        augmentations += [    
+            RandomErasing(probability = args.re, sh = args.re_sh, r1 = args.re_r1, mean=data_info['stat'][0])
+        ]
     
     if args.is_MAE:
         augmentations = [
+            transforms.RandomCrop(data_info['img_size'], padding=4),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             *normalize
         ]
         
-    if not args.fine_path == "":
-            from utils.autoaug import ImageNetPolicy
-            augmentations = [                
-              transforms.Resize(224),
-                transforms.RandomHorizontalFlip(),
-                ImageNetPolicy()
-            ]
+
     
     augmentations = transforms.Compose(augmentations)
       
