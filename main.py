@@ -318,12 +318,11 @@ def main(args):
     if not args.fine_path == '':
         print(args.fine_path)
         print("Using Finetuning !!!")
-        print(args.model == 'vit')
         checkpoint = torch.load(args.fine_path)
         model.load_state_dict(checkpoint['model'], strict=False)
         model.head = nn.Sequential(
             nn.LayerNorm(model.num_features) if not args.model == 'vit' else nn.LayerNorm(model.dim),
-            nn.Linear(model.num_features, data_info['n_classes'] if not args.model == 'vit' else nn.Linear(model.dim, data_info['n_classes']))
+            nn.Linear(model.num_features, data_info['n_classes']) if not args.model == 'vit' else nn.Linear(model.dim, data_info['n_classes'])
         )
         
         if args.model == 'vit':
