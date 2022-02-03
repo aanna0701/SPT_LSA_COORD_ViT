@@ -36,13 +36,13 @@ def datainfo(logger, args):
         img_mean, img_std = (0.4802, 0.4481, 0.3975), (0.2770, 0.2691, 0.2821)
         img_size = 64
         
-    if args.fine_path:
+    if not args.fine_path == '':
         print(Fore.YELLOW+'*'*80)
         logger.debug('Finetuning')
         print('*'*80 + Style.RESET_ALL)
-        # n_classes = 1000
+        n_classes = 1000
         img_mean, img_std = (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)
-        # img_size = 224       
+        img_size = 224       
         
     data_info = dict()
     data_info['n_classes'] = n_classes

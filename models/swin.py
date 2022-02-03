@@ -590,7 +590,6 @@ class SwinTransformer(nn.Module):
     def forward_features(self, x):
     
         k = 0        
-        print(x.shape)
         x = self.patch_embed(x)   
         if not self.is_Coord:
             x = x + self.absolute_pos_embed
