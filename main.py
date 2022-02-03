@@ -247,16 +247,6 @@ def main(args):
                 ImageNetPolicy()
             ]
         
-        if not args.fine_path == "":
-            from utils.autoaug import ImageNetPolicy
-            augmentations = [                
-              transforms.Resize(224),
-                transforms.RandomHorizontalFlip(),
-                ImageNetPolicy()
-            ]
-            
-        print('*'*80 + Style.RESET_ALL)
-        
 
     if args.re > 0:
         from utils.random_erasing import RandomErasing
@@ -283,6 +273,16 @@ def main(args):
             transforms.ToTensor(),
             *normalize
         ]
+    
+    if not args.fine_path == "":
+            from utils.autoaug import ImageNetPolicy
+            augmentations = [                
+              transforms.Resize(224),
+                transforms.RandomHorizontalFlip(),
+                ImageNetPolicy()
+            ]
+            
+        print('*'*80 + Style.RESET_ALL)
     
     augmentations = transforms.Compose(augmentations)
       
