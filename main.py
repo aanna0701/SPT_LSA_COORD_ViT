@@ -266,7 +266,7 @@ def main(args):
             transforms.RandomHorizontalFlip(),
             transforms.RandomCrop(224, padding=4),
             ImageNetPolicy(),
-            transforms.ToTensor()
+            transforms.ToTensor(),
             *normalize
         ]
     
