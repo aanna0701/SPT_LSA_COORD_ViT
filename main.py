@@ -326,16 +326,16 @@ def main(args):
                 nn.LayerNorm(model.num_features),
                 nn.Linear(model.num_features, data_info['n_classes'])
             )
+            model.head.cuda(args.gpu)
+            
         else:
-            model.head = nn.Sequential(
+            model.mlp_head = nn.Sequential(
                 nn.LayerNorm(model.dim),
                 nn.Linear(model.dim, data_info['n_classes'])
             )
-        
-        if args.model == 'vit':
             model.mlp_head.cuda(args.gpu)
-        else:
-            model.head.cuda(args.gpu)
+    
+            
         
     print(model)
     
