@@ -153,10 +153,8 @@ def main(args):
         mae = MAE(
             encoder = model,
             masking_ratio = args.MAE_ratio,   # the paper recommended 75% masked patches
-            decoder_dim = 192,      # paper showed good results with just 512
-            decoder_depth = 4,       # anywhere from 1 to 8
-            decoder_heads = 12,
-            decoder_dim_head = 16,
+            decoder_dim = 512,      # paper showed good results with just 512
+            decoder_depth = 8,       # anywhere from 1 to 8
             is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord
         )
         mae.cuda(args.gpu)
@@ -273,6 +271,7 @@ def main(args):
     if args.is_MAE:
         augmentations = [
             transforms.RandomHorizontalFlip(),
+            transforms.RandomCrop(data_info['img_size'], padding=4),
             transforms.ToTensor(),
             *normalize
         ]

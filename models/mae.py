@@ -29,7 +29,6 @@ class MAE(nn.Module):
         self.encoder = encoder
 
         num_patches, encoder_dim = encoder.pos_embedding.shape[-2:] # (B, N^2+1, d)
-
         
         
         if not is_SPT:
@@ -49,6 +48,7 @@ class MAE(nn.Module):
      
         self.decoder_pos_emb = nn.Embedding(num_patches, decoder_dim)
         self.to_pixels = nn.Linear(decoder_dim, pixel_values_per_patch)
+        
         
     def forward(self, img):
         device = img.device
