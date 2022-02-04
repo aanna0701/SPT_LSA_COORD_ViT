@@ -23,7 +23,7 @@ def create_model(img_size, n_classes, args):
             model = ViT(img_size=224, patch_size = 16,
                           num_classes=1000, dim=192, 
                     mlp_dim_ratio=4, depth=12, heads=3, dim_head=192//3,
-                    stochastic_depth=0.1, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
+                    stochastic_depth=0.1, is_SPT=args.is_SPT, is_LSA=args.is_LSA)
 
     if args.model == 'vit_s':
         if not img_size == 224:
