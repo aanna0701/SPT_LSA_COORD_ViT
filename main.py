@@ -261,6 +261,7 @@ def main(args):
             ]
               
     if not args.fine_path == '':
+        from utils.autoaug import ImageNetPolicy
         augmentations = [
             transforms.RandomHorizontalFlip(),
             transforms.RandomCrop(224, padding=4),
