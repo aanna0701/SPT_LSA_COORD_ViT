@@ -133,8 +133,7 @@ def main(args):
 
     data_info = datainfo(logger, args)
     
-    model = create_model(data_info['img_size'], data_info['n_classes'], args)
-    
+    model = create_model(data_info['img_size'], data_info['n_classes'], args)    
     
     if args.is_MAE:
         args.ls = False
@@ -261,7 +260,14 @@ def main(args):
             RandomErasing(probability = args.re, sh = args.re_sh, r1 = args.re_r1, mean=data_info['stat'][0])
             ]
               
-
+    if not args.fine_path == '':
+        augmentations = [
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomCrop(224, padding=4),
+            ImageNetPolicy(),
+            transforms.ToTensor()
+            *normalize
+        ]
     
     if args.is_MAE:
         augmentations = [
@@ -329,8 +335,6 @@ def main(args):
             model.mlp_head.cuda(args.gpu)
         else:
             model.head.cuda(args.gpu)
-        # optimizer = torch.optim.SGD(model.parameters(), lr=0.01, weight_decay=0.0001)
-        # scheduler = build_scheduler(args, optimizer, len(train_loader))
         
     print(model)
     

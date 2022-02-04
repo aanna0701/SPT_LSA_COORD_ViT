@@ -3,7 +3,6 @@ from torch import nn
 from einops import rearrange
 from einops.layers.torch import Rearrange
 import math
-from .Coord import CoordLinear
 
 class ShiftedPatchTokenization(nn.Module):
     def __init__(self, input_size, in_dim, dim, merging_size=2, exist_class_t=False, is_pe=False):
@@ -52,11 +51,8 @@ class ShiftedPatchTokenization(nn.Module):
         
         if self.exist_class_t:
             flops += self.in_dim * self.dim
-            
-        if self.is_Coord:
-            flops += self.num_patches * (self.patch_dim+2) * self.dim
-        else:
-            flops += self.num_patches * self.patch_dim * self.dim
+   
+        flops += self.num_patches * self.patch_dim * self.dim
         
         
         return flops
