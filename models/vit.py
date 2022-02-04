@@ -198,7 +198,7 @@ class ViT(nn.Module):
             )
             
         else:
-            self.to_patch_embedding = ShiftedPatchTokenization(img_size**2, 3, self.dim, patch_size, is_pe=True, is_Coord=is_Coord)
+            self.to_patch_embedding = ShiftedPatchTokenization(img_size**2, 3, self.dim, patch_size, is_pe=True)
         
         if not is_Coord:
             self.pos_embedding = nn.Parameter(torch.randn(1, self.num_patches + 1, self.dim))
