@@ -288,9 +288,7 @@ def main(args):
     '''
         Training
     '''
-    
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-    scheduler = build_scheduler(args, optimizer, len(train_loader))
+
     
     # summary(model, (3, data_info['img_size'], data_info['img_size']))
     
@@ -298,49 +296,58 @@ def main(args):
     print("Beginning training")
     print()
     
-    lr = optimizer.param_groups[0]["lr"]
+    
     
     if args.resume:
         checkpoint = torch.load(args.resume)
         model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+        scheduler = build_scheduler(args, optimizer, len(train_loader))
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         scheduler.load_state_dict(checkpoint['scheduler'])
         final_epoch = args.epochs
         args.epochs = final_epoch - (checkpoint['epoch'] + 1)
         
-    if not args.MAE_path == '':
-        print(os.path.join(args.MAE_path, 'mae_checkpoint.pth'))
-        print("Using MAE pretrained model !!!")
-        checkpoint = torch.load(os.path.join(args.MAE_path, 'mae_checkpoint.pth'))
-        model.load_state_dict(checkpoint['model_state_dict'])
-        save_path = args.MAE_path
+    else:
+        
+        if not args.MAE_path == '':
+            print(os.path.join(args.MAE_path, 'mae_checkpoint.pth'))
+            print("Using MAE pretrained model !!!")
+            checkpoint = torch.load(os.path.join(args.MAE_path, 'mae_checkpoint.pth'))
+            model.load_state_dict(checkpoint['model_state_dict'])
+            save_path = args.MAE_path
 
-    if not args.fine_path == '':
-        print(args.fine_path)
-        print("Using Finetuning !!!")
-        checkpoint = torch.load(args.fine_path)
-        model.load_state_dict(checkpoint['model'], strict=False)
-        if not args.model == 'vit':
-            model.head = nn.Sequential(
-                nn.LayerNorm(model.num_features),
-                nn.Linear(model.num_features, data_info['n_classes'])
-            )
-            nn.init.xavier_normal_(model.head[1].weight)
-            nn.init.constant_(model.head[0].bias, 0)
-            nn.init.constant_(model.head[0].weight, 1.0)
+        if not args.fine_path == '':
+            print(args.fine_path)
+            print("Using Finetuning !!!")
+            checkpoint = torch.load(args.fine_path)
+            model.load_state_dict(checkpoint['model'], strict=False)
+            if not args.model == 'vit':
+                model.head = nn.Sequential(
+                    nn.LayerNorm(model.num_features),
+                    nn.Linear(model.num_features, data_info['n_classes'])
+                )
+                nn.init.xavier_normal_(model.head[1].weight)
+                nn.init.constant_(model.head[0].bias, 0)
+                nn.init.constant_(model.head[0].weight, 1.0)
+                
+                model.head.cuda(args.gpu)
+                
+            else:
+                model.mlp_head = nn.Sequential(
+                    nn.LayerNorm(model.dim),
+                    nn.Linear(model.dim, data_info['n_classes'])
+                )
+                nn.init.xavier_normal_(model.mlp_head[1].weight)
+                nn.init.constant_(model.mlp_head[0].bias, 0)
+                nn.init.constant_(model.mlp_head[0].weight, 1.0)
+                
+                model.mlp_head.cuda(args.gpu)
+                
+            optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+            scheduler = build_scheduler(args, optimizer, len(train_loader))
             
-            model.head.cuda(args.gpu)
-            
-        else:
-            model.mlp_head = nn.Sequential(
-                nn.LayerNorm(model.dim),
-                nn.Linear(model.dim, data_info['n_classes'])
-            )
-            nn.init.xavier_normal_(model.mlp_head[1].weight)
-            nn.init.constant_(model.mlp_head[0].bias, 0)
-            nn.init.constant_(model.mlp_head[0].weight, 1.0)
-            
-            model.mlp_head.cuda(args.gpu)
+    lr = optimizer.param_groups[0]["lr"]
     
     """
     if isinstance(m, (nn.Linear, nn.Conv2d)):
