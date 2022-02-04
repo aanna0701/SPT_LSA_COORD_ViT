@@ -494,7 +494,6 @@ def validate(val_loader, model, criterion, lr, args, epoch=None):
     n = 0
     with torch.no_grad():
         for i, (images, target) in enumerate(val_loader):
-            print(images.shape)
             if (not args.no_cuda) and torch.cuda.is_available():
                 images = images.cuda(args.gpu, non_blocking=True)
                 target = target.cuda(args.gpu, non_blocking=True)
