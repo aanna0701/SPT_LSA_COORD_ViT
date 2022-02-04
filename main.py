@@ -326,6 +326,10 @@ def main(args):
                 nn.LayerNorm(model.num_features),
                 nn.Linear(model.num_features, data_info['n_classes'])
             )
+            nn.init.xavier_normal_(model.head[1].weight)
+            nn.init.constant_(model.head[0].bias, 0)
+            nn.init.constant_(model.head[0].weight, 1.0)
+            
             model.head.cuda(args.gpu)
             
         else:
@@ -333,9 +337,21 @@ def main(args):
                 nn.LayerNorm(model.dim),
                 nn.Linear(model.dim, data_info['n_classes'])
             )
+            nn.init.xavier_normal_(model.mlp_head[1].weight)
+            nn.init.constant_(model.mlp_head[0].bias, 0)
+            nn.init.constant_(model.mlp_head[0].weight, 1.0)
+            
             model.mlp_head.cuda(args.gpu)
     
-            
+    """
+    if isinstance(m, (nn.Linear, nn.Conv2d)):
+        nn.init.xavier_normal_(m.weight)
+        if m.bias is not None:
+            nn.init.constant_(m.bias, 0)
+    elif isinstance(m, nn.LayerNorm):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
+    """
         
     print(model)
     
