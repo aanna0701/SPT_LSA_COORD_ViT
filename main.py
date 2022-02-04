@@ -264,7 +264,7 @@ def main(args):
         from utils.autoaug import ImageNetPolicy
         augmentations = [
             transforms.RandomHorizontalFlip(),
-            transforms.RandomCrop(224, padding=4),
+            transforms.RandomResizedCrop(224),
             ImageNetPolicy(),
             transforms.ToTensor(),
             *normalize
