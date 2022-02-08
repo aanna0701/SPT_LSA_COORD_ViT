@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from einops import rearrange
 from einops.layers.torch import Rearrange
+from .Coord import CoordLinear
 import math
 
 class ShiftedPatchTokenization(nn.Module):
