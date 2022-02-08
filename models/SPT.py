@@ -5,7 +5,7 @@ from einops.layers.torch import Rearrange
 import math
 
 class ShiftedPatchTokenization(nn.Module):
-    def __init__(self, input_size, in_dim, dim, merging_size=2, exist_class_t=False, is_pe=False):
+    def __init__(self, input_size, in_dim, dim, merging_size=2, exist_class_t=False, is_pe=False, is_Coord=True):
         super().__init__()
         self.in_dim = in_dim
         self.dim = dim
@@ -24,7 +24,7 @@ class ShiftedPatchTokenization(nn.Module):
         self.merging = nn.Sequential(
             Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = merging_size, p2 = merging_size),
             nn.LayerNorm(patch_dim),
-            nn.Linear(patch_dim, dim)
+            nn.Linear(patch_dim, dim) if not is_Coord else CoordLienar(patch_dim, dim)
         )
 
     def forward(self, x):
