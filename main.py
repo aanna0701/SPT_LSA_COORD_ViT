@@ -213,8 +213,8 @@ def main(args):
     augmentations = []
     
     augmentations += [                
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomCrop(data_info['img_size'], padding=4)
+            transforms.RandomCrop(data_info['img_size'], padding=4),
+            transforms.RandomHorizontalFlip()
             ]
     
     if args.aa == True:
@@ -261,8 +261,8 @@ def main(args):
     if not args.fine_path == '':
         from utils.autoaug import ImageNetPolicy
         augmentations = [
-            transforms.RandomHorizontalFlip(),
             transforms.RandomResizedCrop(224),
+            transforms.RandomHorizontalFlip(),            
             ImageNetPolicy(),
             transforms.ToTensor(),
             *normalize
@@ -270,8 +270,8 @@ def main(args):
     
     if args.is_MAE:
         augmentations = [
+           transforms.RandomCrop(data_info['img_size'], padding=4),
             transforms.RandomHorizontalFlip(),
-            transforms.RandomCrop(data_info['img_size'], padding=4),
             transforms.ToTensor(),
             *normalize
         ]
