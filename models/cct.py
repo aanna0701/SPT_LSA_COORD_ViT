@@ -326,13 +326,13 @@ class CCT(nn.Module):
         self.classifier = TransformerClassifier(
             sequence_length=self.tokenizer.sequence_length(n_channels=n_input_channels,
                                                            height=img_size,
-                                                           width=img_size,
-                                                           num_classes=n_classes),
+                                                           width=img_size),
             embedding_dim=embedding_dim,
             seq_pool=True,
             dropout_rate=0.,
             attention_dropout=0.1,
             stochastic_depth=0.1,
+            num_classes=n_classes,
             *args, **kwargs)
 
     def forward(self, x):
