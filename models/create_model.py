@@ -10,7 +10,6 @@ from .efficientnet import EfficientNetB0
 from .coatnet import *
 from .coatnet_2 import coatnet2_0, coatnet2_1
 from .coatnet_3 import coatnet3_0
-from .cct import cct_7
 import timm
 
 def create_model(img_size, n_classes, args):
@@ -93,6 +92,13 @@ def create_model(img_size, n_classes, args):
         
     elif args.model =='coatnet_0':
         model = coatnet_0(img_size=img_size, n_classes=n_classes, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
+    elif args.model =='coatnet_1':
+        model = coatnet_1(img_size=img_size, n_classes=n_classes, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
+    elif args.model =='coatnet_2':
+        model = coatnet_2(img_size=img_size, n_classes=n_classes, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
+    elif args.model =='coatnet_3':
+        model = coatnet_3(img_size=img_size, n_classes=n_classes, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
+    
         
     elif args.model =='swin_s':
         depths = [2, 18, 4] if img_size == 32 else [2, 2, 18, 2]
@@ -130,9 +136,6 @@ def create_model(img_size, n_classes, args):
         model = SwinTransformer(img_size=img_size, window_size=window_size, drop_path_rate=0.1, embed_dim=embed_dim,
                                 patch_size=patch_size, mlp_ratio=mlp_ratio, depths=depths, num_heads=num_heads, num_classes=n_classes, 
                                 is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
-        
-    elif args.model =='cct_7':
-        model = cct_7(img_size=img_size, n_classes=n_classes)
         
     elif args.model =='regnetY_400m':
         model = RegNetY_400MF(n_classes)
