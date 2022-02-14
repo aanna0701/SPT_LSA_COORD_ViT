@@ -49,8 +49,12 @@ class SE(nn.Module):
 
 
 class FeedForward(nn.Module):
-    def __init__(self, dim, hidden_dim, dropout=0., is_Coord=False):
+    def __init__(self, image_size, dim, hidden_dim, dropout=0., is_Coord=False):
         super().__init__()
+        self.ih, self.iw = image_size
+        self.dim = dim
+        self.hidden_dim = hidden_dim
+        self.is_Coord = is_Coord
         self.net = nn.Sequential(
             nn.Linear(dim, hidden_dim) if not is_Coord else CoordLinear(dim, hidden_dim, exist_cls_token=False),
             nn.GELU(),
@@ -62,23 +66,37 @@ class FeedForward(nn.Module):
     def forward(self, x):
         return self.net(x)
 
+    def flops(self):
+        flops = 0
+        if not self.is_Coord:
+            flops += self.dim * self.hidden_dim * self.ih * self.iw
+            flops += self.dim * self.hidden_dim * self.ih * self.iw
+        else:
+            flops += (self.dim+2) * self.hidden_dim * self.ih * self.iw
+            flops += self.dim * (self.hidden_dim+2) * self.ih * self.iw
+        
+        return flops
+
 
 class MBConv(nn.Module):
     def __init__(self, inp, oup, image_size, downsample=False, expansion=2, is_Coord=False, is_SPT=False):
         super().__init__()
         global POOL
         self.downsample = downsample
+        self.ih, self.iw = image_size
         # if image_size[0] > 32 and self.downsample:
         #     POOL = True
         # stride = 1 if self.downsample == False else 2
         stride = 2 if downsample and POOL else 1
-        inp = inp if not is_SPT else inp*5
+        self.inp = inp if not is_SPT else inp*5
         hidden_dim = int(inp * expansion)
+        self.oup = oup
+        self.hidden_dim = hidden_dim
 
         if self.downsample:
             self.SPT = PatchShifting(2) if is_SPT else nn.Identity()
             self.pool = nn.MaxPool2d(3, stride, 1)
-            self.proj = nn.Conv2d(inp, oup, 1, 1, 0, bias=False)
+            self.proj = nn.Conv2d(self.inp, oup, 1, 1, 0, bias=False)
 
         if expansion == 1:
             self.conv = nn.Sequential(
@@ -117,6 +135,25 @@ class MBConv(nn.Module):
             return self.proj(self.pool(x)) + self.conv(x)
         else:
             return x + self.conv(x)
+        
+    def flops(self):
+        flops = 0
+        if self.downsample:
+            flops += self.ih * self.iw * (self.inp * self.oup)
+            flops += self.ih * self.iw * (self.inp * self.oup)
+                
+        else:
+            flops += self.ih * self.iw * (self.inp * self.hidden_dim)
+            flops += self.ih * self.iw * self.hidden_dim
+            flops += self.ih * self.iw * self.hidden_dim * self.hidden_dim * 3**2
+            flops += self.hidden_dim * self.inp * 0.25
+            flops += self.hidden_dim * self.inp * 0.25
+            flops += self.ih * self.iw * self.hidden_dim
+            flops += self.ih * self.iw * self.hidden_dim * self.oup
+            flops += self.ih * self.iw * self.oup
+                
+        
+        return flops
 
 
 class Attention(nn.Module):
@@ -126,6 +163,9 @@ class Attention(nn.Module):
         project_out = not (heads == 1 and dim_head == inp)
 
         self.ih, self.iw = image_size
+        self.inp = inp
+        self.oup = oup
+        self.inner_dim = inner_dim
 
         self.heads = heads
         self.scale = dim_head ** -0.5
@@ -159,6 +199,7 @@ class Attention(nn.Module):
             self.mask = torch.nonzero((self.mask == 1), as_tuple=False)
             self.inf = float('-inf')
             self.scale = nn.Parameter(self.scale*torch.ones(heads))
+        self.is_Coord = is_Coord
 
     def forward(self, x):
         qkv = self.to_qkv(x).chunk(3, dim=-1)
@@ -185,6 +226,23 @@ class Attention(nn.Module):
         out = rearrange(out, 'b h n d -> b n (h d)')
         out = self.to_out(out)
         return out
+    
+    def flops(self):
+        flops = 0
+        if not self.is_Coord:
+            flops += self.inp * self.inner_dim * 3 * self.ih * self.iw
+        else:
+            flops += (self.inp+2) * self.inner_dim * 3 * self.ih * self.iw  
+            
+        flops += self.inner_dim * ((self.ih * self.iw)**2)
+        flops += self.inner_dim * ((self.ih * self.iw)**2)
+        
+        if not self.is_Coord:
+            flops += self.inner_dim * self.oup * self.ih * self.iw
+        else:
+            flops += (self.inner_dim+2) * self.oup * self.ih * self.iw
+        
+        return flops
 
 
 class Transformer(nn.Module):
@@ -196,6 +254,9 @@ class Transformer(nn.Module):
         self.ih, self.iw = image_size
         self.downsample = downsample
         self.is_SPT = is_SPT
+        self.inp = inp
+        self.oup = oup
+        
         if self.downsample:
             if not is_SPT:
                 self.pool1 = nn.MaxPool2d(3, 2, 1)
@@ -209,7 +270,7 @@ class Transformer(nn.Module):
                 self.proj = nn.Conv2d(inp, oup, 1, 1, 0, bias=False)     
 
         self.attn = Attention(inp, oup, image_size, heads, dim_head, dropout, is_LSA=is_LSA, is_Coord=is_Coord)
-        self.ff = FeedForward(oup, hidden_dim, dropout, is_Coord=is_Coord if not is_last else False)
+        self.ff = FeedForward(image_size, oup, hidden_dim, dropout, is_Coord=is_Coord if not is_last else False)
 
         self.attn = nn.Sequential(
             Rearrange('b c ih iw -> b (ih iw) c'),
@@ -234,6 +295,22 @@ class Transformer(nn.Module):
             x = x + self.attn(x)
         x = x + self.ff(x)
         return x
+    
+    def flops(self):
+        flops = 0
+        if self.downsample:
+            if not self.is_SPT:
+                flops += self.ih * self.iw * (self.inp * self.oup)
+                flops += self.attn.flops()
+            else:
+                flops += self.ih * self.iw * (self.inp * 5 * self.oup)
+                flops += self.attn.flops()
+                
+        else:
+            flops += self.attn.flops()
+            flops += self.ff.flops()
+        
+        return flops
 
 
 class CoAtNet(nn.Module):
@@ -241,11 +318,15 @@ class CoAtNet(nn.Module):
                  is_LSA=False, is_SPT=False, is_Coord=False):
         super().__init__()
         global POOL
+        self.channels = channels
+        self.in_channels = in_channels
         ih, iw = image_size
         block = {'C': MBConv, 'T': Transformer}
         self.image_size = ih
         self.is_LSA = is_LSA
         self.is_Coord = is_Coord
+        self.channel = channels[-1]
+        self.n_classes = num_classes
         if ih == 32:
             self.s0 = self._make_layer(
                 conv_3x3_bn, in_channels, channels[0], num_blocks[0], (ih, iw), is_SPT=is_SPT)
@@ -317,12 +398,18 @@ class CoAtNet(nn.Module):
 
     def flops(self):
         flops = 0
-        flops += self.s0.flops()
+        if not self.is_Coord:
+            flops += self.in_channels * self.channels[0] * 3**2 * self.image_size[0] * self.image_size[1]
+            flops += self.channels[0] * self.image_size[0] * self.image_size[1]
+        else:
+            flops += self.in_channels * 5 * self.channels[0] * 3**2 * self.image_size[0] * self.image_size[1]
+            flops += self.channels[0] * self.image_size[0] * self.image_size[1]
+        
         flops += self.s1.flops()
-        if self.image_size > 32:
-            flops += self.s2.flops()    
+        flops += self.s2.flops()    
         flops += self.s3.flops()
         flops += self.s4.flops()
+        flops += self.channel * self.n_classes
         
         return flops
 
