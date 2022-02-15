@@ -31,7 +31,7 @@ MODELS = ['vit', 'swin_t','swin_s','swin_b','swin_l', 'pit',
           'cait_xxs24', 'cait_xs24', 'cait_s24', 'cait_xxs36', 't2t', 'effiv2', 'res110', 'effib0' 
           'regnetX_400m', 'regnetY_4G', 'regnetY_8G', 'effiv2_m', 'regnetX_200m', 'regnetY_400m', 'regnetY_200m',
           'coatnet_0', 'coatnet_1', 'coatnet_2', 'coatnet_3', 'coatnet2_0', 'coatnet2_1', 
-          'coatnet3_0', 'vit_s', 'cct_7']
+          'coatnet3_0', 'vit_s', 'alter50']
 
 
 
