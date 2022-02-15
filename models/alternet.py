@@ -101,7 +101,7 @@ class AttentionBasicBlockA(AttentionBlockA):
 
 class AttentionBlockB(nn.Module):
     # Attention block with pre-activation.
-    expansion = 2
+    expansion = 4
 
     def __init__(self, dim_in, dim_out=None, *,
                  heads=8, dim_head=64, dropout=0.0, sd=0.0,
