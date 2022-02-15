@@ -10,6 +10,7 @@ from .efficientnet import EfficientNetB0
 from .coatnet import *
 from .coatnet_2 import coatnet2_0, coatnet2_1
 from .coatnet_3 import coatnet3_0
+from .alternet import *
 import timm
 
 def create_model(img_size, n_classes, args):
@@ -170,4 +171,7 @@ def create_model(img_size, n_classes, args):
     elif args.model =='effiv2_m':
         model = effnetv2_m(n_classes)
         
+    elif args.model =='alertnet50':
+        model = dnn_50(num_classes=n_classes, is_LSA=args.is_LSA, is_SPT=args.is_SPT, is_Coord=args.is_Coord)    
+    
     return model
