@@ -176,7 +176,7 @@ class StemB(nn.Module):
     # Stem stage for pre-activation pattern
     # based on pre-activation ResNet.
 
-    def __init__(self, dim_in, dim_out, pool=True, is_SPT=False):
+    def __init__(self, dim_in, dim_out, pool=False, is_SPT=False):
         super().__init__()
         
         self.layer0 = []
@@ -207,22 +207,22 @@ class AlterNet(nn.Module):
         idxs = [[j for j in range(sum(num_blocks[:i]), sum(num_blocks[:i + 1]))] for i in range(len(num_blocks))]
         sds = [[sd * j / (sum(num_blocks) - 1) for j in js] for js in idxs]
 
-        self.layer0 = stem(3, 64, is_SPT=is_SPT)
-        self.layer1 = self._make_layer(block1, block2, 64, 64,
+        self.layer0 = stem(3, 16, is_SPT=is_SPT)
+        self.layer1 = self._make_layer(block1, block2, 16, 16,
                                        num_blocks[0], num_blocks2[0], stride=1, heads=heads[0], sds=sds[0], **block_kwargs)
-        self.layer2 = self._make_layer(block1, block2, 64 * block2.expansion, 128,
+        self.layer2 = self._make_layer(block1, block2, 16 * block2.expansion, 32,
                                        num_blocks[1], num_blocks2[1], stride=2, heads=heads[1], sds=sds[1], **block_kwargs)
-        self.layer3 = self._make_layer(block1, block2, 128 * block2.expansion, 256,
+        self.layer3 = self._make_layer(block1, block2, 32 * block2.expansion, 64,
                                        num_blocks[2], num_blocks2[2], stride=2, heads=heads[2], sds=sds[2], **block_kwargs)
-        self.layer4 = self._make_layer(block1, block2, 256 * block2.expansion, 512,
-                                       num_blocks[3], num_blocks2[3], stride=2, heads=heads[3], sds=sds[3], **block_kwargs)
+        # self.layer4 = self._make_layer(block1, block2, 256 * block2.expansion, 512,
+        #                                num_blocks[3], num_blocks2[3], stride=2, heads=heads[3], sds=sds[3], **block_kwargs)
 
         self.classifier = []
         if cblock is classifier.MLPBlock:
             self.classifier.append(nn.AdaptiveAvgPool2d((7, 7)))
             self.classifier.append(cblock(7 * 7 * 512 * block2.expansion, num_classes, **block_kwargs))
         else:
-            self.classifier.append(cblock(512 * block2.expansion, num_classes, **block_kwargs))
+            self.classifier.append(cblock(64 * block2.expansion, num_classes, **block_kwargs))
         self.classifier = nn.Sequential(*self.classifier)
 
     @staticmethod
@@ -267,6 +267,11 @@ def dnn_50(num_classes=1000, stem=True, name="alternet_50", is_Coord=False, is_S
                     num_blocks=(3, 4, 6, 4), num_blocks2=(0, 1, 3, 2), heads=(3, 6, 12, 24),
                     num_classes=num_classes, name=name, **block_kwargs)
 
+def dnn_56(num_classes=1000, stem=True, name="alternet_50", is_Coord=False, is_SPT=False, is_LSA=False,**block_kwargs):
+    return AlterNet(preresnet_dnn.Bottleneck, AttentionBlockB, stem=partial(StemB, pool=stem),
+                    num_blocks=(3, 4, 6, 4), num_blocks2=(0, 1, 3, 2), heads=(3, 6, 12, 24),
+                    num_classes=num_classes, name=name, **block_kwargs)
+
 
 def dnn_101(num_classes=1000, stem=True, name="alternet_101", is_Coord=False, is_SPT=False, is_LSA=False,**block_kwargs):
     return AlterNet(preresnet_dnn.Bottleneck, AttentionBlockB, stem=partial(StemB, pool=stem),
@@ -278,3 +283,4 @@ def dnn_152(num_classes=1000, stem=True, name="alternet_152", is_Coord=False, is
     return AlterNet(preresnet_dnn.Bottleneck, AttentionBlockB, stem=partial(StemB, pool=stem),
                     num_blocks=(3, 8, 36, 4), num_blocks2=(0, 1, 3, 2), heads=(3, 6, 12, 24),
                     num_classes=num_classes, name=name, **block_kwargs)
+1
