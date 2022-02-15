@@ -59,11 +59,11 @@ class LocalAttention(nn.Module):
 # Attention Blocks
 
 class AttentionBlockA(nn.Module):
-    expansion = 4
+    expansion = 2
 
     def __init__(self, dim_in, dim_out=None, *,
                  heads=8, dim_head=64, dropout=0.0, sd=0.0,
-                 stride=1, window_size=7, k=1, norm=nn.BatchNorm2d, activation=nn.GELU,
+                 stride=1, window_size=4, k=1, norm=nn.BatchNorm2d, activation=nn.GELU,
                  **block_kwargs):
         super().__init__()
         dim_out = dim_in if dim_out is None else dim_out
