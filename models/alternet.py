@@ -267,7 +267,7 @@ def dnn_50(num_classes=1000, stem=True, name="alternet_50", is_Coord=False, is_S
                     num_blocks=(3, 4, 6, 4), num_blocks2=(0, 1, 3, 2), heads=(3, 6, 12, 24),
                     num_classes=num_classes, name=name, **block_kwargs)
 
-def dnn_56(num_classes=1000, stem=True, name="alternet_50", is_Coord=False, is_SPT=False, is_LSA=False,**block_kwargs):
+def dnn_56(num_classes=1000, stem=False, name="alternet_50", is_Coord=False, is_SPT=False, is_LSA=False,**block_kwargs):
     return AlterNet(preresnet_dnn.Bottleneck, AttentionBlockB, stem=partial(StemB, pool=stem),
                     num_blocks=(9, 9, 9), num_blocks2=(0, 3, 3), heads=(3, 6, 12),
                     num_classes=num_classes, name=name, **block_kwargs)
