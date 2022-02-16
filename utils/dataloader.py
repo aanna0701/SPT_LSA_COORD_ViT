@@ -52,7 +52,7 @@ def dataload(args, augmentations, normalize, data_info):
             root=args.data_path, train=True, download=True, transform=augmentations)
         val_dataset = datasets.CIFAR10(
             root=args.data_path, train=False, download=False, transform=transforms.Compose([
-            transforms.Resize(data_info['img_size']),
+            transforms.Resize(data_info['img_size'] if args.fine_path=='' else transforms.Resize(224)),
             transforms.ToTensor(),
             *normalize]))
         
