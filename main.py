@@ -334,8 +334,8 @@ def main(args):
     # optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     optimizer = torch.optim.SGD(model.parameters(), lr=args.lr,
     momentum=0.9, weight_decay=args.weight_decay, nesterov=True)
-    # scheduler = build_scheduler(args, optimizer, len(train_loader))
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.975)
+    scheduler = build_scheduler(args, optimizer, len(train_loader))
+    # scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.975)
     
     
         
@@ -492,7 +492,7 @@ def train(train_loader, model, criterion, optimizer, epoch, scheduler,  args):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        
+        scheduler.step()
         lr = optimizer.param_groups[0]["lr"]
 
         if args.print_freq >= 0 and i % args.print_freq == 0:
@@ -508,8 +508,6 @@ def train(train_loader, model, criterion, optimizer, epoch, scheduler,  args):
         logger_dict.update(keys[1], avg_acc1)
         writer.add_scalar("Loss/train", avg_loss, epoch)
         writer.add_scalar("Acc/train", avg_acc1, epoch)
-    
-    scheduler.step()
     
     return lr
 
