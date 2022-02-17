@@ -331,11 +331,8 @@ def main(args):
             
             model.mlp_head.cuda(args.gpu)
                 
-    # optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr,
-    momentum=0.9, weight_decay=args.weight_decay, nesterov=True)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scheduler = build_scheduler(args, optimizer, len(train_loader))
-    # scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.975)
     
     
         
