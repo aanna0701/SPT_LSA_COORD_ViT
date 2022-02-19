@@ -172,6 +172,6 @@ def create_model(img_size, n_classes, args):
         model = effnetv2_m(n_classes)
         
     elif args.model =='alter50':
-        model = dnn_50(num_classes=n_classes, is_LSA=args.is_LSA, is_SPT=args.is_SPT, is_Coord=args.is_Coord)    
+        model = dnn_50(img_size=img_size, num_classes=n_classes, is_LSA=args.is_LSA, is_SPT=args.is_SPT, is_Coord=args.is_Coord)    
     
     return model

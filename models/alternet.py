@@ -177,8 +177,7 @@ class StemB(nn.Module):
 
         self.layer0 = []
         if pool:
-            self.layer0.append(layers.convnxn(dim_in, dim_out, kernel_size=7, stride=2, padding=3))
-            self.layer0.append(nn.MaxPool2d(kernel_size=3, stride=2, padding=1))
+            self.layer0.append(layers.conv3x3(dim_in, dim_out, stride=2))
         else:
             self.layer0.append(layers.conv3x3(dim_in, dim_out, stride=1))
         self.layer0 = nn.Sequential(*self.layer0)
@@ -256,8 +255,8 @@ def dnn_34(num_classes=1000, stem=True, name="alternet_34", **block_kwargs):
                     num_classes=num_classes, name=name, **block_kwargs)
 
 
-def dnn_50(num_classes=1000, stem=False, name="alternet_50", **block_kwargs):
-    return AlterNet(preresnet_dnn.Bottleneck, AttentionBlockB, stem=partial(StemB, pool=stem),
+def dnn_50(img_size=32, num_classes=1000, stem=False, name="alternet_50", **block_kwargs):
+    return AlterNet(preresnet_dnn.Bottleneck, AttentionBlockB, stem=partial(StemB, pool=True if img_size > 32 else False),
                     num_blocks=(3, 4, 6, 4), num_blocks2=(0, 1, 1, 2), heads=(3, 6, 12, 24),
                     num_classes=num_classes, name=name, **block_kwargs)
 
