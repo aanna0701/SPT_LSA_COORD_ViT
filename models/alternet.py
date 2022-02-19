@@ -16,10 +16,6 @@ from models.layers import conv1x1, DropPath
 from models.attentions import Attention2d
 
 
-from .SPT import ShiftedPatchTokenization
-from .Coord import CoordLinear
-
-
 class LocalAttention(nn.Module):
 
     def __init__(self, dim_in, dim_out=None, *,
@@ -59,7 +55,7 @@ class LocalAttention(nn.Module):
 # Attention Blocks
 
 class AttentionBlockA(nn.Module):
-    expansion = 2
+    expansion = 4
 
     def __init__(self, dim_in, dim_out=None, *,
                  heads=8, dim_head=64, dropout=0.0, sd=0.0,
@@ -176,12 +172,12 @@ class StemB(nn.Module):
     # Stem stage for pre-activation pattern
     # based on pre-activation ResNet.
 
-    def __init__(self, dim_in, dim_out, pool=False, is_SPT=False):
+    def __init__(self, dim_in, dim_out, pool=True):
         super().__init__()
-        
+
         self.layer0 = []
         if pool:
-            self.layer0.append(layers.convnxn(dim_in, dim_out, kernel_size=3, stride=1, padding=1))
+            self.layer0.append(layers.convnxn(dim_in, dim_out, kernel_size=7, stride=2, padding=3))
             self.layer0.append(nn.MaxPool2d(kernel_size=3, stride=2, padding=1))
         else:
             self.layer0.append(layers.conv3x3(dim_in, dim_out, stride=1))
@@ -199,30 +195,28 @@ class AlterNet(nn.Module):
     def __init__(self, block1, block2, *,
                  num_blocks, num_blocks2, heads,
                  cblock=classifier.BNGAPBlock,
-                 sd=0.0, num_classes=10, stem=StemB, name="cavit", 
-                 is_Coord=False, is_SPT=False, is_LSA=False,
-                 **block_kwargs):
+                 sd=0.0, num_classes=10, stem=StemB, name="cavit", **block_kwargs):
         super().__init__()
         self.name = name
         idxs = [[j for j in range(sum(num_blocks[:i]), sum(num_blocks[:i + 1]))] for i in range(len(num_blocks))]
         sds = [[sd * j / (sum(num_blocks) - 1) for j in js] for js in idxs]
 
-        self.layer0 = stem(3, 16, is_SPT=is_SPT)
-        self.layer1 = self._make_layer(block1, block2, 16, 16,
+        self.layer0 = stem(3, 64)
+        self.layer1 = self._make_layer(block1, block2, 64, 64,
                                        num_blocks[0], num_blocks2[0], stride=1, heads=heads[0], sds=sds[0], **block_kwargs)
-        self.layer2 = self._make_layer(block1, block2, 16 * block2.expansion, 32,
+        self.layer2 = self._make_layer(block1, block2, 64 * block2.expansion, 128,
                                        num_blocks[1], num_blocks2[1], stride=2, heads=heads[1], sds=sds[1], **block_kwargs)
-        self.layer3 = self._make_layer(block1, block2, 32 * block2.expansion, 64,
+        self.layer3 = self._make_layer(block1, block2, 128 * block2.expansion, 256,
                                        num_blocks[2], num_blocks2[2], stride=2, heads=heads[2], sds=sds[2], **block_kwargs)
-        # self.layer4 = self._make_layer(block1, block2, 256 * block2.expansion, 512,
-        #                                num_blocks[3], num_blocks2[3], stride=2, heads=heads[3], sds=sds[3], **block_kwargs)
+        self.layer4 = self._make_layer(block1, block2, 256 * block2.expansion, 512,
+                                       num_blocks[3], num_blocks2[3], stride=2, heads=heads[3], sds=sds[3], **block_kwargs)
 
         self.classifier = []
         if cblock is classifier.MLPBlock:
             self.classifier.append(nn.AdaptiveAvgPool2d((7, 7)))
             self.classifier.append(cblock(7 * 7 * 512 * block2.expansion, num_classes, **block_kwargs))
         else:
-            self.classifier.append(cblock(64 * block2.expansion, num_classes, **block_kwargs))
+            self.classifier.append(cblock(512 * block2.expansion, num_classes, **block_kwargs))
         self.classifier = nn.Sequential(*self.classifier)
 
     @staticmethod
@@ -243,48 +237,38 @@ class AlterNet(nn.Module):
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
-        # x = self.layer4(x)
+        x = self.layer4(x)
 
         x = self.classifier(x)
 
         return x
 
 
-def dnn_18(num_classes=1000, stem=True, name="alternet_18", is_Coord=False, is_SPT=False, is_LSA=False,**block_kwargs):
+def dnn_18(num_classes=1000, stem=True, name="alternet_18", **block_kwargs):
     return AlterNet(preresnet_dnn.BasicBlock, AttentionBasicBlockB, stem=partial(StemB, pool=stem),
                     num_blocks=(2, 2, 2, 2), num_blocks2=(0, 1, 1, 1), heads=(3, 6, 12, 24),
                     num_classes=num_classes, name=name, **block_kwargs)
 
 
-def dnn_34(num_classes=1000, stem=True, name="alternet_34", is_Coord=False, is_SPT=False, is_LSA=False,**block_kwargs):
+def dnn_34(num_classes=1000, stem=True, name="alternet_34", **block_kwargs):
     return AlterNet(preresnet_dnn.BasicBlock, AttentionBasicBlockB, stem=partial(StemB, pool=stem),
                     num_blocks=(3, 4, 6, 4), num_blocks2=(0, 1, 3, 2), heads=(3, 6, 12, 24),
                     num_classes=num_classes, name=name, **block_kwargs)
 
 
-def dnn_50(num_classes=1000, stem=True, name="alternet_50", is_Coord=False, is_SPT=False, is_LSA=False,**block_kwargs):
+def dnn_50(num_classes=1000, stem=False, name="alternet_50", **block_kwargs):
     return AlterNet(preresnet_dnn.Bottleneck, AttentionBlockB, stem=partial(StemB, pool=stem),
-                    num_blocks=(3, 4, 6, 4), num_blocks2=(0, 1, 3, 2), heads=(3, 6, 12, 24),
-                    num_classes=num_classes, name=name, **block_kwargs)
-
-def dnn_56(img_size, num_classes=1000, stem=False, name="alternet_50", is_Coord=False, is_SPT=False, is_LSA=False,**block_kwargs):
-    return AlterNet(preresnet_dnn.Bottleneck, AttentionBlockB, stem=partial(StemB, pool=stem if not img_size>32 else True),
-                    num_blocks=(9, 9, 9), num_blocks2=(0, 3, 3), heads=(3, 6, 12),
-                    num_classes=num_classes, name=name, **block_kwargs)
-def dnn_110(img_size, num_classes=1000, stem=False, name="alternet_50", is_Coord=False, is_SPT=False, is_LSA=False,**block_kwargs):
-    return AlterNet(preresnet_dnn.Bottleneck, AttentionBlockB, stem=partial(StemB, pool=stem if not img_size>32 else True),
-                    num_blocks=(18, 18, 18), num_blocks2=(0, 3, 3), heads=(3, 6, 12),
+                    num_blocks=(3, 4, 6, 4), num_blocks2=(0, 1, 1, 2), heads=(3, 6, 12, 24),
                     num_classes=num_classes, name=name, **block_kwargs)
 
 
-def dnn_101(num_classes=1000, stem=True, name="alternet_101", is_Coord=False, is_SPT=False, is_LSA=False,**block_kwargs):
+def dnn_101(num_classes=1000, stem=True, name="alternet_101", **block_kwargs):
     return AlterNet(preresnet_dnn.Bottleneck, AttentionBlockB, stem=partial(StemB, pool=stem),
                     num_blocks=(3, 4, 23, 4), num_blocks2=(0, 1, 3, 2), heads=(3, 6, 12, 24),
                     num_classes=num_classes, name=name, **block_kwargs)
 
 
-def dnn_152(num_classes=1000, stem=True, name="alternet_152", is_Coord=False, is_SPT=False, is_LSA=False,**block_kwargs):
+def dnn_152(num_classes=1000, stem=True, name="alternet_152", **block_kwargs):
     return AlterNet(preresnet_dnn.Bottleneck, AttentionBlockB, stem=partial(StemB, pool=stem),
                     num_blocks=(3, 8, 36, 4), num_blocks2=(0, 1, 3, 2), heads=(3, 6, 12, 24),
                     num_classes=num_classes, name=name, **block_kwargs)
-1
