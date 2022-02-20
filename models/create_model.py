@@ -174,4 +174,10 @@ def create_model(img_size, n_classes, args):
     elif args.model =='alter50':
         model = dnn_50(img_size=img_size, num_classes=n_classes, is_LSA=args.is_LSA, is_SPT=args.is_SPT, is_Coord=args.is_Coord)    
     
+    elif args.model =='alter101':
+        model = dnn_101(img_size=img_size, num_classes=n_classes, is_LSA=args.is_LSA, is_SPT=args.is_SPT, is_Coord=args.is_Coord)    
+    
+    elif args.model =='alter152':
+        model = dnn_152(img_size=img_size, num_classes=n_classes, is_LSA=args.is_LSA, is_SPT=args.is_SPT, is_Coord=args.is_Coord)    
+    
     return model

@@ -261,13 +261,13 @@ def dnn_50(img_size=32, num_classes=1000, stem=False, name="alternet_50", **bloc
                     num_classes=num_classes, name=name, **block_kwargs)
 
 
-def dnn_101(num_classes=1000, stem=True, name="alternet_101", **block_kwargs):
-    return AlterNet(preresnet_dnn.Bottleneck, AttentionBlockB, stem=partial(StemB, pool=stem),
+def dnn_101(img_size=32,num_classes=1000, stem=True, name="alternet_101", **block_kwargs):
+    return AlterNet(preresnet_dnn.Bottleneck, AttentionBlockB, stem=partial(StemB, pool=True if img_size > 32 else False),
                     num_blocks=(3, 4, 23, 4), num_blocks2=(0, 1, 3, 2), heads=(3, 6, 12, 24),
                     num_classes=num_classes, name=name, **block_kwargs)
 
 
-def dnn_152(num_classes=1000, stem=True, name="alternet_152", **block_kwargs):
-    return AlterNet(preresnet_dnn.Bottleneck, AttentionBlockB, stem=partial(StemB, pool=stem),
+def dnn_152(img_size=32, num_classes=1000, stem=True, name="alternet_152", **block_kwargs):
+    return AlterNet(preresnet_dnn.Bottleneck, AttentionBlockB, stem=partial(StemB, pool=True if img_size > 32 else False),
                     num_blocks=(3, 8, 36, 4), num_blocks2=(0, 1, 3, 2), heads=(3, 6, 12, 24),
                     num_classes=num_classes, name=name, **block_kwargs)
