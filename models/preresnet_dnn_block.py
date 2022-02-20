@@ -67,8 +67,8 @@ class Bottleneck(nn.Module):
         self.shortcut = nn.Sequential(*self.shortcut)
         self.bn = layers.bn(in_channels)
         self.relu = layers.relu()
-        if is_SPT:
-            self.spt = PatchShifting(2)
+        if is_SPT and stride > 1:
+            self.spt = PatchShifting(stride)
             in_channels *= 5
         else:
             self.spt = nn.Identity()
