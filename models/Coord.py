@@ -42,13 +42,13 @@ class AddCoords(nn.Module):
 
 class CoordConv(nn.Module):
 
-    def __init__(self, in_channels, out_channels, with_r=False, **kwargs):
+    def __init__(self, in_channels, out_channels, kernel_size, with_r=False, **kwargs):
         super().__init__()
         self.addcoords = AddCoords(with_r=with_r)
         in_size = in_channels+2
         if with_r:
             in_size += 1
-        self.conv = nn.Conv2d(in_size, out_channels, **kwargs)
+        self.conv = nn.Conv2d(in_size, out_channels, kernel_size=kernel_size, **kwargs)
 
     def forward(self, x):
         ret = self.addcoords(x)

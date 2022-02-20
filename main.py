@@ -358,7 +358,7 @@ def main(args):
             nn.init.constant_(m.weight, 1.0)
     """
         
-    print(model)
+    # print(model)
     
     for epoch in tqdm(range(args.epochs)):
         lr = train(train_loader, model, criterion, optimizer, epoch, scheduler, args)

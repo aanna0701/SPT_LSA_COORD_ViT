@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import models.layers as layers
+from .SPT import PatchShifting
 
 
 class BasicBlock(nn.Module):
@@ -53,7 +54,7 @@ class Bottleneck(nn.Module):
     expansion = 4
 
     def __init__(self, in_channels, channels,
-                 stride=1, groups=1, width_per_group=64, sd=0.0,
+                 stride=1, groups=1, width_per_group=64, sd=0.0, is_SPT=False,
                  **block_kwargs):
         super(Bottleneck, self).__init__()
 
@@ -61,11 +62,16 @@ class Bottleneck(nn.Module):
 
         self.shortcut = []
         if stride != 1 or in_channels != channels * self.expansion:
+
             self.shortcut.append(layers.conv1x1(in_channels, channels * self.expansion, stride=stride))
         self.shortcut = nn.Sequential(*self.shortcut)
         self.bn = layers.bn(in_channels)
         self.relu = layers.relu()
-
+        if is_SPT:
+            self.spt = PatchShifting(2)
+            in_channels *= 5
+        else:
+            self.spt = nn.Identity()
         self.conv1 = layers.conv1x1(in_channels, width)
         self.conv2 = nn.Sequential(
             layers.bn(width),
@@ -90,6 +96,7 @@ class Bottleneck(nn.Module):
             x = self.bn(x)
             x = self.relu(x)
 
+        x = self.spt(x)
         x = self.conv1(x)
         x = self.conv2(x)
         x = self.conv3(x)

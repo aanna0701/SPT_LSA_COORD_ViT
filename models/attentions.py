@@ -9,6 +9,7 @@ from torch import nn, einsum
 from einops import rearrange
 from models.layers import DropPath
 
+from .Coord import CoordConv
 
 class FeedForward(nn.Module):
 
@@ -68,29 +69,47 @@ class Attention1d(nn.Module):
 class Attention2d(nn.Module):
 
     def __init__(self, dim_in, dim_out=None, *,
-                 heads=8, dim_head=64, dropout=0.0, k=1):
+                 heads=8, dim_head=64, dropout=0.0, k=1,
+                 is_LSA=False, is_Coord=False):
         super().__init__()
         self.heads = heads
         self.scale = dim_head ** -0.5
 
         inner_dim = dim_head * heads
         dim_out = dim_in if dim_out is None else dim_out
+        
+        self.is_Coord = is_Coord
+        if is_LSA:
+            self.scale = nn.Parameter(self.scale*torch.ones(self.heads))
+            self.inf = float('-inf')
 
-        self.to_q = nn.Conv2d(dim_in, inner_dim * 1, 1, bias=False)
-        self.to_kv = nn.Conv2d(dim_in, inner_dim * 2, k, stride=k, bias=False)
+        self.to_q = nn.Conv2d(dim_in, inner_dim * 1, 1, bias=False) if not is_Coord else CoordConv(dim_in, inner_dim * 1, 1, bias=False)
+        self.to_kv = nn.Conv2d(dim_in, inner_dim * 2, k, stride=k, bias=False) if not is_Coord else CoordConv(dim_in, inner_dim * 2, k, stride=k, bias=False)
 
         self.to_out = nn.Sequential(
-            nn.Conv2d(inner_dim, dim_out, 1),
+            nn.Conv2d(inner_dim, dim_out, 1) if not is_Coord else CoordConv(inner_dim, dim_out, 1),
             nn.Dropout(dropout) if dropout > 0.0 else nn.Identity()
         )
 
-    def forward(self, x, mask=None):
+    def forward(self, x, mask=None, LSA_mask=None):
         b, n, _, y = x.shape
         qkv = (self.to_q(x), *self.to_kv(x).chunk(2, dim=1))
         q, k, v = map(lambda t: rearrange(t, 'b (h d) x y -> b h (x y) d', h=self.heads), qkv)
-
-        dots = einsum('b h i d, b h j d -> b h i j', q, k) * self.scale
-        dots = dots + mask if mask is not None else dots
+        
+        if LSA_mask is None:
+            dots = einsum('b h i d, b h j d -> b h i j', q, k) * self.scale
+        else:
+            scale = self.scale
+            dots = torch.mul(einsum('b h i d, b h j d -> b h i j', q, k), scale.unsqueeze(0).unsqueeze(-1).unsqueeze(-1).expand((b, self.heads, 1, 1)))
+            
+        if mask is not None:
+            dots = dots + mask
+            
+        else:
+            dots = dots
+            
+        if LSA_mask is not None:
+            dots[:, :, LSA_mask[:, 0], LSA_mask[:, 1]] = self.inf
         attn = dots.softmax(dim=-1)
 
         out = einsum('b h i j, b h j d -> b h i d', attn, v)
