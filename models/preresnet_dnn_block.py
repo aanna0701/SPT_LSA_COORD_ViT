@@ -69,14 +69,13 @@ class Bottleneck(nn.Module):
         self.relu = layers.relu()        
         self.conv1 = layers.conv1x1(in_channels, width)
         if is_SPT and stride > 1:
-            self.spt = PatchShifting(stride)
             self.conv2 = nn.Sequential(
-                layers.bn(width*5),
+                layers.bn(width),
                 layers.relu(),
+                PatchShifting(stride),
                 layers.conv3x3(width*5, width, stride=stride, groups=groups),
             )
         else:
-            self.spt = nn.Identity()
             self.conv2 = nn.Sequential(
                 layers.bn(width),
                 layers.relu(),
@@ -101,7 +100,6 @@ class Bottleneck(nn.Module):
             x = self.relu(x)
 
         x = self.conv1(x)
-        x = self.spt(x)
         x = self.conv2(x)
         x = self.conv3(x)
 
