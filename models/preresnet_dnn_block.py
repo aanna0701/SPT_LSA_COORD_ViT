@@ -72,7 +72,7 @@ class Bottleneck(nn.Module):
             self.conv2 = nn.Sequential(
                 layers.bn(width),
                 layers.relu(),
-                PatchShifting(stride),
+                PatchShifting(2),
                 layers.conv3x3(width*5, width, stride=stride, groups=groups),
             )
         else:
