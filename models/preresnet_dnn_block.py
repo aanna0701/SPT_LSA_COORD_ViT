@@ -66,18 +66,22 @@ class Bottleneck(nn.Module):
             self.shortcut.append(layers.conv1x1(in_channels, channels * self.expansion, stride=stride))
         self.shortcut = nn.Sequential(*self.shortcut)
         self.bn = layers.bn(in_channels)
-        self.relu = layers.relu()
+        self.relu = layers.relu()        
+        self.conv1 = layers.conv1x1(in_channels, width)
         if is_SPT and stride > 1:
             self.spt = PatchShifting(stride)
-            in_channels *= 5
+            self.conv2 = nn.Sequential(
+                layers.bn(width*5),
+                layers.relu(),
+                layers.conv3x3(width*5, width, stride=stride, groups=groups),
+            )
         else:
             self.spt = nn.Identity()
-        self.conv1 = layers.conv1x1(in_channels, width)
-        self.conv2 = nn.Sequential(
-            layers.bn(width),
-            layers.relu(),
-            layers.conv3x3(width, width, stride=stride, groups=groups),
-        )
+            self.conv2 = nn.Sequential(
+                layers.bn(width),
+                layers.relu(),
+                layers.conv3x3(width, width, stride=stride, groups=groups),
+            )
         self.conv3 = nn.Sequential(
             layers.bn(width),
             layers.relu(),
@@ -96,8 +100,8 @@ class Bottleneck(nn.Module):
             x = self.bn(x)
             x = self.relu(x)
 
-        x = self.spt(x)
         x = self.conv1(x)
+        x = self.spt(x)
         x = self.conv2(x)
         x = self.conv3(x)
 
