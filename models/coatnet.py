@@ -123,7 +123,7 @@ class MBConv(nn.Module):
             self.conv = nn.Sequential(
                 # pw
                 # down-sample in the first conv
-                nn.Conv2d(inp, hidden_dim, 1, stride, 0, bias=False),
+                nn.Conv2d(self.inp, hidden_dim, 1, stride, 0, bias=False),
                 nn.BatchNorm2d(hidden_dim),
                 nn.GELU(),
                 # dw
