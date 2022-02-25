@@ -578,7 +578,7 @@ def main(args):
 
     if args.type == 'latency': 
         # Throughput
-        batch=128
+        batch=256
         inputs = torch.randn(batch, 3, img_size, img_size).cuda(GPU)
         repetitions=30
         warmup = 100
