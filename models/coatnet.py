@@ -21,13 +21,23 @@ def conv_3x3_bn(inp, oup, image_size, downsample=False, is_Coord=False, is_SPT=F
 
 
 class PreNorm(nn.Module):
-    def __init__(self, dim, fn, norm):
+    def __init__(self, dim, fn, norm, num_patches):
         super().__init__()
         self.norm = norm(dim)
         self.fn = fn
+        self.num_patches = num_patches
+        self.dim = dim
 
     def forward(self, x, **kwargs):
         return self.fn(self.norm(x), **kwargs)
+    
+    def flops(self):
+        flops = 0
+        
+        flops += self.num_patches * self.dim
+        flops += self.fn.flops()
+        
+        return flops
 
 
 class SE(nn.Module):
@@ -127,7 +137,7 @@ class MBConv(nn.Module):
                 nn.BatchNorm2d(oup),
             )
         
-        self.conv = PreNorm(inp, self.conv, nn.BatchNorm2d)
+        self.conv = PreNorm(inp, self.conv, nn.BatchNorm2d, self.ih*self.iw)
 
     def forward(self, x):
         if self.downsample:
@@ -274,13 +284,13 @@ class Transformer(nn.Module):
 
         self.attn = nn.Sequential(
             Rearrange('b c ih iw -> b (ih iw) c'),
-            PreNorm(inp, self.attn, nn.LayerNorm),
+            PreNorm(inp, self.attn, nn.LayerNorm, self.ih*self.iw),
             Rearrange('b (ih iw) c -> b c ih iw', ih=self.ih, iw=self.iw)
         )
 
         self.ff = nn.Sequential(
             Rearrange('b c ih iw -> b (ih iw) c'),
-            PreNorm(oup, self.ff, nn.LayerNorm),
+            PreNorm(oup, self.ff, nn.LayerNorm, self.ih*self.iw),
             Rearrange('b (ih iw) c -> b c ih iw', ih=self.ih, iw=self.iw)
         )
 
@@ -301,14 +311,14 @@ class Transformer(nn.Module):
         if self.downsample:
             if not self.is_SPT:
                 flops += self.ih * self.iw * (self.inp * self.oup)
-                flops += self.attn.flops()
+                flops += self.attn[1].flops()
             else:
                 flops += self.ih * self.iw * (self.inp * 5 * self.oup)
-                flops += self.attn.flops()
+                flops += self.attn[1].flops()
                 
         else:
-            flops += self.attn.flops()
-            flops += self.ff.flops()
+            flops += self.attn[1].flops()
+            flops += self.ff[1].flops()
         
         return flops
 
@@ -394,21 +404,27 @@ class CoAtNet(nn.Module):
                     layers.append(block(inp, oup, image_size, downsample=True, is_Coord=is_Coord, is_SPT=is_SPT))
                 else:
                     layers.append(block(oup, oup, image_size, is_LSA=self.is_LSA, is_Coord=self.is_Coord, is_last = False if not (i == depth-1 and is_last) else True))
+        # return layers
         return nn.Sequential(*layers)
 
     def flops(self):
         flops = 0
         if not self.is_Coord:
-            flops += self.in_channels * self.channels[0] * 3**2 * self.image_size[0] * self.image_size[1]
-            flops += self.channels[0] * self.image_size[0] * self.image_size[1]
+            flops += self.in_channels * self.channels[0] * 3**2 * self.image_size * self.image_size
+            flops += self.channels[0] * self.image_size * self.image_size
         else:
-            flops += self.in_channels * 5 * self.channels[0] * 3**2 * self.image_size[0] * self.image_size[1]
-            flops += self.channels[0] * self.image_size[0] * self.image_size[1]
+            flops += self.in_channels * 5 * self.channels[0] * 3**2 * self.image_size * self.image_size
+            flops += self.channels[0] * self.image_size * self.image_size
         
-        flops += self.s1.flops()
-        flops += self.s2.flops()    
-        flops += self.s3.flops()
-        flops += self.s4.flops()
+        for s1 in self.s1:
+            flops += s1.flops()
+        for s2 in self.s2:
+            flops += s2.flops()
+        for s3 in self.s3:
+            flops += s3.flops()
+        for s4 in self.s4:
+            flops += s4.flops()
+            
         flops += self.channel * self.n_classes
         
         return flops

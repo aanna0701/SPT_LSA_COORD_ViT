@@ -125,7 +125,7 @@ class AttentionBlockB(nn.Module):
         self.norm1 = norm(dim_in)
         self.relu = activation()
 
-        self.conv = nn.Conv2d(dim_in, width, kernel_size=1, bias=False) if not is_Coord else CoordConv(dim_in, width, kernel_size=1, bias=False)
+        self.conv = nn.Conv2d(dim_in, width, kernel_size=1, bias=False)
         self.norm2 = norm(width)
         self.attn = attn(width, dim_out * self.expansion, heads=heads, dim_head=dim_head, dropout=dropout, is_LSA=is_LSA, is_Coord=is_Coord)
         self.sd = DropPath(sd) if sd > 0.0 else nn.Identity()
