@@ -137,7 +137,7 @@ class MBConv(nn.Module):
                 nn.BatchNorm2d(oup),
             )
         
-        self.conv = PreNorm(inp, self.conv, nn.BatchNorm2d, self.ih*self.iw)
+        self.conv = PreNorm(self.inp, self.conv, nn.BatchNorm2d, self.ih*self.iw)
 
     def forward(self, x):
         if self.downsample:
