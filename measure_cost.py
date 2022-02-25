@@ -578,7 +578,7 @@ def main(args):
 
     if args.type == 'latency': 
         # Throughput
-        batch=1024
+        batch=256
         inputs = torch.randn(batch, 3, img_size, img_size).cuda(GPU)
         repetitions=30
         warmup = 100
@@ -596,7 +596,7 @@ def main(args):
                     curr_time = starter.elapsed_time(ender)/1000
                     total_time += curr_time
         Throughput =   (repetitions*batch)/total_time
-        print(f'Model: {args.model} Final Throughput:{Throughput}')
+        print(f'Model: {args.model} Throughput:{Throughput}')
         print()
         
 
