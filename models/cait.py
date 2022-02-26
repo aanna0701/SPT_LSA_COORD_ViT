@@ -321,7 +321,14 @@ class CaiT(nn.Module):
     ):
         super().__init__()
         
+
+        image_height, image_width = pair(img_size)
+        patch_height, patch_width = pair(patch_size)
         num_patches = (image_height // patch_height) * (image_width // patch_width)
+        self.dim = dim
+        self.num_classes = num_classes
+        self.is_SPT = is_SPT
+        self.is_Coord = is_Coord
         
         if not is_SPT:
             patch_dim = 3 * patch_size ** 2
@@ -333,15 +340,9 @@ class CaiT(nn.Module):
             self.pe_flops = patch_dim * dim * num_patches
         
         else:
-            self.to_patch_embedding = ShiftedPatchTokenization(img_size**2, 3, dim, patch_size, is_pe=True, is_Coord=is_Coord)
-
-        image_height, image_width = pair(img_size)
-        patch_height, patch_width = pair(patch_size)
+            self.to_patch_embedding = ShiftedPatchTokenization(img_size**2, 3, dim, patch_size, is_pe=True, is_Coord=is_Coord)     
         
-        self.dim = dim
-        self.num_classes = num_classes
-        self.is_SPT = is_SPT
-        self.is_Coord = is_Coord
+        
         if not is_Coord:
             self.pos_embedding = nn.Parameter(torch.randn(1, num_patches, dim))
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
