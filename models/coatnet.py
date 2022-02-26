@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 
 from .SPT import PatchShifting, ShiftedPatchTokenization
-from .Coord import CoordLinear
+from .Coord import CoordLinear, CoordConv
 from einops import rearrange
 from einops.layers.torch import Rearrange
 
@@ -295,7 +295,7 @@ class Transformer(nn.Module):
                 self.SPT = PatchShifting(2)
                 self.pool1 = nn.MaxPool2d(3, 2, 1)
                 self.pool2 = nn.MaxPool2d(3, 2, 1)
-                self.proj = nn.Conv2d(inp, oup, 1, 1, 0, bias=False)     
+                self.proj = nn.Conv2d(inp, oup, 1, 1, 0, bias=False) if not is_Coord else CoordConv(inp, oup, 1, bias=False)   
 
         self.attn = Attention(inp, oup, image_size, heads, dim_head, dropout, is_LSA=is_LSA, is_Coord=is_Coord)
         self.ff = FeedForward(image_size, oup, hidden_dim, dropout, is_Coord=is_Coord if not is_last else False)
@@ -321,7 +321,7 @@ class Transformer(nn.Module):
                 if self.is_Coord:
                     B, _, H, W = x.size()
                     coords = self.addcoords(B, H//2, W//2)
-                    x_proj = self.proj(self.pool1(x))
+                    x_proj = self.proj(self.pool1(x), rearrange(coords, 'b (h w) d -> b d h w', h=H//2))
                     x_attnd = self.attn[0](self.pool2(x))
                     x_attnd = self.attn[1](x_attnd, coords)
                     x_attnd = self.attn[2](x_attnd)
