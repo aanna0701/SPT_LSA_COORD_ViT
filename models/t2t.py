@@ -409,11 +409,7 @@ class T2T_ViT(nn.Module):
 
     def forward_features(self, x):
         B = x.shape[0]
-        if self.is_Coord:
-            x, coords = self.tokens_to_token(x)
-        else:
-            x = self.tokens_to_token(x)
-            coords = None
+        x, coords = self.tokens_to_token(x)
 
         cls_tokens = self.cls_token.expand(B, -1, -1)
         x = torch.cat((cls_tokens, x), dim=1)
