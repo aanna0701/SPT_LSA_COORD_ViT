@@ -13,6 +13,7 @@ from utils.drop_path import DropPath
 import torch
 from .SPT import ShiftedPatchTokenization
 from .Coord import CoordLinear
+from einops import rearrange
 
 class Mlp(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0., is_Coord=False):
@@ -23,12 +24,13 @@ class Mlp(nn.Module):
         self.act = act_layer()
         self.fc2 = nn.Linear(hidden_features, out_features) if not is_Coord else CoordLinear(hidden_features, out_features, exist_cls_token=False)
         self.drop = nn.Dropout(drop)
+        self.is_Coord = is_Coord
 
-    def forward(self, x):
-        x = self.fc1(x)
+    def forward(self, x, coords):
+        x = self.fc1(x) if not self.is_Coord else self.fc1(x, coords)
         x = self.act(x)
         x = self.drop(x)
-        x = self.fc2(x)
+        x = self.fc2(x) if not self.is_Coord else self.fc2(x, coords)
         x = self.drop(x)
         return x
 
@@ -117,14 +119,17 @@ class WindowAttention(nn.Module):
         trunc_normal_(self.relative_position_bias_table, std=.02)
         self.softmax = nn.Softmax(dim=-1)
 
-    def forward(self, x, mask=None):
+    def forward(self, x, mask=None, coords=None):
         """
         Args:
             x: input features with shape of (num_windows*B, N, C)
             mask: (0/-inf) mask with shape of (num_windows, Wh*Ww, Wh*Ww) or None
         """
         B_, N, C = x.shape
-        qkv = self.qkv(x).reshape(B_, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+        if not self.is_Coord:
+            qkv = self.qkv(x).reshape(B_, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+        else:
+            qkv = self.qkv(x, coords).reshape(B_, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
         q, k, v = qkv[0], qkv[1], qkv[2]  # make torchscript happy (cannot use tensor as tuple)
 
 
@@ -160,7 +165,7 @@ class WindowAttention(nn.Module):
         attn = self.attn_drop(attn)
 
         x = (attn @ v).transpose(1, 2).reshape(B_, N, C)
-        x = self.proj(x)
+        x = self.proj(x) if not self.is_Coord else self.proj(x, coords)
         x = self.proj_drop(x)
         
         return x
@@ -257,7 +262,7 @@ class SwinTransformerBlock(nn.Module):
 
         self.register_buffer("attn_mask", attn_mask)    # No parameter
 
-    def forward(self, x):
+    def forward(self, x, coords, coords_attnd):
         # H, W = self.input_resolution
         B, L, C = x.shape
         H = int(math.sqrt(L))
@@ -280,7 +285,7 @@ class SwinTransformerBlock(nn.Module):
         x_windows = x_windows.view(-1, self.window_size * self.window_size, C)  # nW*B, window_size*window_size, C
 
         # W-MSA/SW-MSA
-        attn_windows = self.attn(x_windows, mask=self.attn_mask)  # nW*B, window_size*window_size, C
+        attn_windows = self.attn(x_windows, mask=self.attn_mask, coords=coords_attnd)  # nW*B, window_size*window_size, C
 
         # merge windows
         attn_windows = attn_windows.view(-1, self.window_size, self.window_size, C)
@@ -295,7 +300,7 @@ class SwinTransformerBlock(nn.Module):
 
         # FFN
         x = shortcut + self.drop_path(x)
-        x = x + self.drop_path(self.mlp(self.norm2(x)))
+        x = x + self.drop_path(self.mlp(self.norm2(x), coords=coords))
 
         return x
 
@@ -398,7 +403,7 @@ class BasicLayer(nn.Module):
         self.input_resolution = input_resolution
         self.depth = depth
         self.use_checkpoint = use_checkpoint
-
+        self.is_SPT = is_SPT
         
         # build blocks
         self.blocks = nn.ModuleList([
@@ -422,18 +427,21 @@ class BasicLayer(nn.Module):
         else:
             self.downsample = None
 
-    def forward(self, x):
+    def forward(self, x, coords, coords_attnd):
+        
         for blk in self.blocks:
             if self.use_checkpoint:
-                x = checkpoint.checkpoint(blk, x)
+                x = checkpoint.checkpoint(blk, x, coords, coords_attnd)
             else:
                 #print(x.shape)
-                x = blk(x)
+                x = blk(x, coords, coords_attnd)
         if self.downsample is not None:
-             x = self.downsample(x)
-            
-             
-        return x
+            if self.is_SPT:
+                x, coords = self.downsample(x)
+            else:
+                x = self.downsample(x)
+                
+        return x, coords
 
     def extra_repr(self) -> str:
         return f"dim={self.dim}, input_resolution={self.input_resolution}, depth={self.depth}"
@@ -525,7 +533,7 @@ class SwinTransformer(nn.Module):
                  **kwargs):
         super().__init__()
            
-
+        self.window_size = window_size
         self.num_classes = num_classes
         self.num_layers = len(depths)
         self.embed_dim = embed_dim
@@ -600,16 +608,22 @@ class SwinTransformer(nn.Module):
 
     
     def forward_features(self, x):
-        
-        k = 0        
-        x = self.patch_embed(x)   
+        if self.is_Coord:
+            coords_attnd = self.addcoords(1, self.window_size, self.window_size)
+        else:
+            coords_attnd = None
+        if not self.is_Coord:
+            x = self.patch_embed(x)
+            coords = None
+        else:
+            x, coords = self.patch_embed(x)
+            
         if not self.is_Coord:
             x = x + self.absolute_pos_embed
         x = self.pos_drop(x)
         
         for i, layer in enumerate(self.layers):
-            x = layer(x)
-
+            x, coords = layer(x, coords, coords_attnd)
                 
         x = self.norm(x)  # B L C
         x = self.avgpool(x.transpose(1, 2))  # B C 1
@@ -630,3 +644,22 @@ class SwinTransformer(nn.Module):
         flops += self.num_features * self.img_resolution[0] * self.img_resolution[1] # layer norm
         flops += self.num_features * self.num_classes   # mlp head
         return flops
+
+    def addcoords(self, B, H, W):
+        xx_channel = torch.arange(H).repeat(1, W, 1)
+        yy_channel = torch.arange(W).repeat(1, H, 1).transpose(1, 2)
+        xx_channel = xx_channel.float() / (H - 1)
+        yy_channel = yy_channel.float() / (W - 1)
+
+        xx_channel = xx_channel * 2 - 1
+        yy_channel = yy_channel * 2 - 1
+
+        xx_channel = xx_channel.repeat(B, 1, 1, 1).transpose(2, 3)
+        yy_channel = yy_channel.repeat(B, 1, 1, 1).transpose(2, 3)
+
+        xy_channel = torch.cat([
+			        xx_channel, yy_channel],
+			        dim=1)
+        xy_channel = rearrange(xy_channel, 'b d h w -> b (h w) d')
+    
+        return xy_channel

@@ -27,8 +27,8 @@ class PreNorm(nn.Module):
         self.num_tokens = num_tokens
         self.norm = nn.LayerNorm(dim)
         self.fn = fn
-    def forward(self, x, **kwargs):
-        return self.fn(self.norm(x), ** kwargs)
+    def forward(self, x, coords, **kwargs):
+        return self.fn(self.norm(x), coords, ** kwargs)
     def flops(self):
         flops = 0        
         flops += self.fn.flops()
@@ -59,8 +59,16 @@ class FeedForward(nn.Module):
                 CoordLinear(hidden_dim, dim),
                 nn.Dropout(dropout)
             )            
-    def forward(self, x):
-        return self.net(x)
+    def forward(self, x, coords):
+        if not self.is_Coord:
+            out = self.net(x)
+        else:
+            out = self.net[0](x, coords)
+            out = self.net[1:3](out)
+            out = self.net[3](out, coords)
+            out = self.net[-1](out)
+        
+        return out
     
     def flops(self):
         flops = 0
@@ -80,14 +88,13 @@ class Attention(nn.Module):
     def __init__(self, dim, num_patches, heads = 8, dim_head = 64, dropout = 0., is_LSA=False, is_Coord=False):
         super().__init__()
         inner_dim = dim_head *  heads
-        project_out = not (heads == 1 and dim_head == dim)
         self.num_patches = num_patches
         self.heads = heads
         self.scale = dim_head ** -0.5
         self.dim = dim
         self.inner_dim = inner_dim
         self.attend = nn.Softmax(dim = -1)
-        self. is_Coord = is_Coord
+        self.is_Coord = is_Coord
         self.to_qkv = nn.Linear(self.dim, self.inner_dim * 3, bias = False) if not is_Coord else CoordLinear(self.dim, self.inner_dim * 3, bias = False)
         init_weights(self.to_qkv)
         
@@ -95,12 +102,12 @@ class Attention(nn.Module):
             self.to_out = nn.Sequential(
                 nn.Linear(self.inner_dim, self.dim),
                 nn.Dropout(dropout)
-            ) if project_out else nn.Identity() 
+            ) 
         else:
             self.to_out = nn.Sequential(
                 CoordLinear(self.inner_dim, self.dim),
                 nn.Dropout(dropout)
-            ) if project_out else nn.Identity()
+            )
         self.is_LSA = is_LSA  
         if is_LSA:
             self.scale = nn.Parameter(self.scale*torch.ones(heads))    
@@ -110,9 +117,9 @@ class Attention(nn.Module):
         else:
             self.mask = None
 
-    def forward(self, x):
+    def forward(self, x, coords):
         b, n, _, h = *x.shape, self.heads
-        qkv = self.to_qkv(x).chunk(3, dim = -1)
+        qkv = self.to_qkv(x).chunk(3, dim = -1) if not self.is_Coord else self.to_qkv(x, coords).chunk(3, dim = -1)
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = h), qkv)
         
         mask = torch.nonzero((torch.eye(n, n) == 1), as_tuple=False)
@@ -129,7 +136,14 @@ class Attention(nn.Module):
         out = einsum('b h i j, b h j d -> b h i d', attn, v) 
             
         out = rearrange(out, 'b h n d -> b n (h d)')
-        return self.to_out(out)
+        if not self.is_Coord:
+            out = self.to_out(out)
+        else:
+            out = self.to_out[0](out, coords)
+            out = self.to_out[1](out)
+        
+        return out
+    
     
     def flops(self):
         flops = 0
@@ -164,10 +178,10 @@ class Transformer(nn.Module):
             ]))            
         self.drop_path = DropPath(stochastic_depth) if stochastic_depth > 0 else nn.Identity()
     
-    def forward(self, x):
+    def forward(self, x, coords=None):
         for i, (attn, ff) in enumerate(self.layers):       
-            x = self.drop_path(attn(x)) + x
-            x = self.drop_path(ff(x)) + x            
+            x = self.drop_path(attn(x, coords)) + x
+            x = self.drop_path(ff(x, coords)) + x            
             self.scale[str(i)] = attn.fn.scale
         return x
     
@@ -216,9 +230,12 @@ class ViT(nn.Module):
         self.apply(init_weights)
 
     def forward(self, img):
-        # patch embedding
-        
-        x = self.to_patch_embedding(img)
+        # patch embedding        
+        if not self.is_Coord:
+            x = self.to_patch_embedding(img)
+            coords = None
+        else:
+            x, coords = self.to_patch_embedding(img)
             
         b, n, _ = x.shape
         
@@ -229,7 +246,7 @@ class ViT(nn.Module):
             x += self.pos_embedding[:, :(n + 1)]
         x = self.dropout(x)
 
-        x = self.transformer(x)      
+        x = self.transformer(x, coords)      
         
         return self.mlp_head(x[:, 0])
     

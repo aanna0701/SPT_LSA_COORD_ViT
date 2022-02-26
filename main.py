@@ -8,6 +8,7 @@ import torch.optim
 import torch.utils.data
 import torchvision.transforms as transforms
 from colorama import Fore, Style
+# from torchsummaryX import summary
 from torchsummary import summary
 from utils.losses import LabelSmoothingCrossEntropy
 import os
@@ -290,7 +291,9 @@ def main(args):
     '''
 
     
-    summary(model, (3, data_info['img_size'], data_info['img_size']))
+    # summary(model, torch.rand((1, 3, data_info['img_size'], data_info['img_size'])).cuda())
+    # summary(model, (3, data_info['img_size'], data_info['img_size']))
+    print(model)
     
     print()
     print("Beginning training")

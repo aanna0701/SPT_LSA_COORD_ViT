@@ -79,8 +79,8 @@ class LayerScale(nn.Module):
         scale = torch.zeros(1, 1, dim).fill_(init_eps)
         self.scale = nn.Parameter(scale)
         self.fn = fn
-    def forward(self, x, **kwargs):
-        return self.fn(x, **kwargs) * self.scale
+    def forward(self, x, coords=None, **kwargs):
+        return self.fn(x, coords=coords, **kwargs) * self.scale
     def flops(self):
         flops = 0
         
@@ -96,8 +96,8 @@ class PreNorm(nn.Module):
         self.dim = dim
         self.num_tokens = num_tokens
         
-    def forward(self, x, **kwargs):
-        return self.fn(self.norm(x), **kwargs)
+    def forward(self, x, coords=None, **kwargs):
+        return self.fn(self.norm(x), coords=coords, **kwargs)
     def flops(self):
         flops = 0
         
@@ -142,8 +142,16 @@ class FeedForward(nn.Module):
                     nn.Dropout(dropout)
                 )
             
-    def forward(self, x):
-        return self.net(x)
+    def forward(self, x, coords=None):
+        if not self.is_Coord or not self.if_patch_attn:
+            out = self.net(x)
+        else:
+            out = self.net[0](x, coords)
+            out = self.net[1:3](out)
+            out = self.net[3](out, coords)
+            out = self.net[-1](out)
+        
+        return out
 
     def flops(self):
         flops = 0
@@ -200,12 +208,12 @@ class Attention(nn.Module):
             self.mask = torch.nonzero((self.mask == 1), as_tuple=False)
         self.if_patch_attn = if_patch_attn
 
-    def forward(self, x, context = None):
+    def forward(self, x, context = None, coords=None):
         b, n, _, h = *x.shape, self.heads
 
         context = x if not exists(context) else context
 
-        qkv = (self.to_q(x), *self.to_kv(context).chunk(2, dim = -1))
+        qkv = (self.to_q(x), *self.to_kv(context).chunk(2, dim = -1)) if not self.is_Coord else (self.to_q(x, coords), *self.to_kv(context, coords).chunk(2, dim = -1))
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = h), qkv)
 
         if not self.is_LSA:
@@ -223,7 +231,13 @@ class Attention(nn.Module):
 
         out = einsum('b h i j, b h j d -> b h i d', attn, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
-        return self.to_out(out)
+        if not self.is_Coord:
+            out = self.to_out(out)
+        else:
+            out = self.to_out[0](out, coords)
+            out = self.to_out[1](out)
+        
+        return out
     
     def flops(self):
         flops = 0
@@ -266,13 +280,13 @@ class Transformer(nn.Module):
             ]))
         self.drop_path = DropPath(stochastic_depth) if stochastic_depth > 0 else nn.Identity()
     
-    def forward(self, x, context = None):
+    def forward(self, x, context = None, coords=None):
         layers = dropout_layers(self.layers, dropout = self.layer_dropout)
 
         for attn, ff in layers:
             
-            x = self.drop_path(attn(x, context = context)) + x
-            x = self.drop_path(ff(x)) + x
+            x = self.drop_path(attn(x, context = context, coords=coords)) + x
+            x = self.drop_path(ff(x, coords=coords)) + x
         return x
     
     def flops(self):
@@ -306,7 +320,8 @@ class CaiT(nn.Module):
         is_Coord=False
     ):
         super().__init__()
-        num_patches = (img_size // patch_size) ** 2
+        
+        num_patches = (image_height // patch_height) * (image_width // patch_width)
         
         if not is_SPT:
             patch_dim = 3 * patch_size ** 2
@@ -318,11 +333,11 @@ class CaiT(nn.Module):
             self.pe_flops = patch_dim * dim * num_patches
         
         else:
-            self.to_patch_embedding = ShiftedPatchTokenization(num_patches**2, 3, dim, patch_size, is_pe=True, is_Coord=is_Coord)
+            self.to_patch_embedding = ShiftedPatchTokenization(img_size**2, 3, dim, patch_size, is_pe=True, is_Coord=is_Coord)
 
         image_height, image_width = pair(img_size)
         patch_height, patch_width = pair(patch_size)
-        num_patches = (image_height // patch_height) * (image_width // patch_width)
+        
         self.dim = dim
         self.num_classes = num_classes
         self.is_SPT = is_SPT
@@ -344,14 +359,19 @@ class CaiT(nn.Module):
         self.apply(init_weights)
 
     def forward(self, img):
-        x = self.to_patch_embedding(img)
+        if not self.is_Coord:
+            x = self.to_patch_embedding(img)
+            coords = None
+        else:
+            x, coords = self.to_patch_embedding(img)
+            
         b, n, _ = x.shape
 
         if not self.is_Coord:
             x += self.pos_embedding[:, :n]
         x = self.dropout(x)
 
-        x = self.patch_transformer(x)
+        x = self.patch_transformer(x, coords=coords)
 
         cls_tokens = repeat(self.cls_token, '() n d -> b n d', b = b)
         x = self.cls_transformer(cls_tokens, context = x)

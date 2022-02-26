@@ -11,9 +11,9 @@ class ShiftedPatchTokenization(nn.Module):
         self.in_dim = in_dim
         self.dim = dim
         self.exist_class_t = exist_class_t
-        self.num_patches = input_size
-        self.num_patches = self.num_patches // (merging_size**2)
+        self.num_patches = input_size // (merging_size**2)
         self.patch_shifting = PatchShifting(merging_size)
+        self.is_Coord = is_Coord
         
         patch_dim = (in_dim*5) * (merging_size**2) 
         self.patch_dim = patch_dim
@@ -29,21 +29,31 @@ class ShiftedPatchTokenization(nn.Module):
         )
 
     def forward(self, x):
+        input_size = int(math.sqrt(self.num_patches))
+        coords = self.addcoords(x.size(0), input_size, input_size)
         
         if self.exist_class_t:
             visual_tokens, class_token = x[:, 1:], x[:, (0,)]
             reshaped = rearrange(visual_tokens, 'b (h w) d -> b d h w', h=int(math.sqrt(x.size(1))))
             out_visual = self.patch_shifting(reshaped)
-            out_visual = self.merging(out_visual)
+            if not self.is_Coord:
+                out_visual = self.merging(out_visual)
+            else:
+                out_visual = self.merging[:2](out_visual)
+                out_visual = self.merging[-1](out_visual, coords)
             out_class = self.class_linear(class_token)
             out = torch.cat([out_class, out_visual], dim=1)
         
         else:
             out = x if self.is_pe else rearrange(x, 'b (h w) d -> b d h w', h=int(math.sqrt(x.size(1))))
             out = self.patch_shifting(out)
-            out = self.merging(out)    
+            if not self.is_Coord:
+                out = self.merging(out)
+            else:
+                out = self.merging[:2](out)
+                out = self.merging[-1](out, coords)    
         
-        return out
+        return out, coords
     
     def flops(self):
         flops = 0
@@ -57,6 +67,25 @@ class ShiftedPatchTokenization(nn.Module):
         
         
         return flops
+    
+    def addcoords(self, B, H, W):
+        xx_channel = torch.arange(H).repeat(1, W, 1)
+        yy_channel = torch.arange(W).repeat(1, H, 1).transpose(1, 2)
+        xx_channel = xx_channel.float() / (H - 1)
+        yy_channel = yy_channel.float() / (W - 1)
+
+        xx_channel = xx_channel * 2 - 1
+        yy_channel = yy_channel * 2 - 1
+
+        xx_channel = xx_channel.repeat(B, 1, 1, 1).transpose(2, 3)
+        yy_channel = yy_channel.repeat(B, 1, 1, 1).transpose(2, 3)
+
+        xy_channel = torch.cat([
+			        xx_channel, yy_channel],
+			        dim=1)
+        xy_channel = rearrange(xy_channel, 'b d h w -> b (h w) d')
+    
+        return xy_channel
         
 
         

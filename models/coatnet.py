@@ -28,8 +28,12 @@ class PreNorm(nn.Module):
         self.num_patches = num_patches
         self.dim = dim
 
-    def forward(self, x, **kwargs):
-        return self.fn(self.norm(x), **kwargs)
+    def forward(self, x, coords=None, **kwargs):
+        if coords is not None:
+            out = self.fn(self.norm(x), coords=coords, **kwargs)
+        else:
+            out = self.fn(self.norm(x), **kwargs)
+        return out 
     
     def flops(self):
         flops = 0
@@ -73,8 +77,16 @@ class FeedForward(nn.Module):
             nn.Dropout(dropout)
         )
 
-    def forward(self, x):
-        return self.net(x)
+    def forward(self, x, coords=None):
+        if not self.is_Coord:
+            out = self.net(x)
+        else:
+            out = self.net[0](x, coords)
+            out = self.net[1:3](out)
+            out = self.net[3](out, coords)
+            out = self.net[-1](out)
+        
+        return out
 
     def flops(self):
         flops = 0
@@ -211,8 +223,8 @@ class Attention(nn.Module):
             self.scale = nn.Parameter(self.scale*torch.ones(heads))
         self.is_Coord = is_Coord
 
-    def forward(self, x):
-        qkv = self.to_qkv(x).chunk(3, dim=-1)
+    def forward(self, x, coords=None):
+        qkv = self.to_qkv(x).chunk(3, dim=-1) if not self.is_Coord else self.to_qkv(x, coords).chunk(3, dim = -1)
         q, k, v = map(lambda t: rearrange(
             t, 'b n (h d) -> b h n d', h=self.heads), qkv)
 
@@ -234,7 +246,12 @@ class Attention(nn.Module):
         attn = self.attend(dots)
         out = torch.matmul(attn, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
-        out = self.to_out(out)
+        if not self.is_Coord:
+            out = self.to_out(out)
+        else:
+            out = self.to_out[0](out, coords)
+            out = self.to_out[1](out)
+            
         return out
     
     def flops(self):
@@ -264,6 +281,7 @@ class Transformer(nn.Module):
         self.ih, self.iw = image_size
         self.downsample = downsample
         self.is_SPT = is_SPT
+        self.is_Coord = is_Coord
         self.inp = inp
         self.oup = oup
         
@@ -294,17 +312,54 @@ class Transformer(nn.Module):
             Rearrange('b (ih iw) c -> b c ih iw', ih=self.ih, iw=self.iw)
         )
 
-    def forward(self, x):
+    def forward(self, x, coords=None):
         if self.downsample:
             if not self.is_SPT:
                 x = self.proj(self.pool1(x)) + self.attn(self.pool2(x))
-            else:
+            else:                
                 x = self.SPT(x)
-                x = self.proj(self.pool1(x)) + self.attn(self.pool2(x))
+                if self.is_Coord:
+                    B, _, H, W = x.size()
+                    coords = self.addcoords(B, H//2, W//2)
+                    x_proj = self.proj(self.pool1(x))
+                    x_attnd = self.attn[0](self.pool2(x))
+                    x_attnd = self.attn[1](x_attnd, coords)
+                    x_attnd = self.attn[2](x_attnd)
+                    x = x_proj + x_attnd                    
+                    
+                else:
+                    x = self.proj(self.pool1(x)) + self.attn(self.pool2(x))                
+                
         else:
-            x = x + self.attn(x)
-        x = x + self.ff(x)
-        return x
+            if not self.is_Coord:
+                x = x + self.attn(x)
+            else:
+                x = x + self.attn[2](self.attn[1](self.attn[0](x), coords))
+
+        if not self.is_Coord:
+            x = x + self.ff(x)
+        else:
+            x = x + self.ff[2](self.ff[1](self.ff[0](x), coords))
+        
+        return x, coords
+    
+    def addcoords(self, B, H, W):
+        xx_channel = torch.arange(H).repeat(1, W, 1)
+        yy_channel = torch.arange(W).repeat(1, H, 1).transpose(1, 2)
+        xx_channel = xx_channel.float() / (H - 1)
+        yy_channel = yy_channel.float() / (W - 1)
+
+        xx_channel = xx_channel * 2 - 1
+        yy_channel = yy_channel * 2 - 1
+
+        xx_channel = xx_channel.repeat(B, 1, 1, 1).transpose(2, 3)
+        yy_channel = yy_channel.repeat(B, 1, 1, 1).transpose(2, 3)
+
+        xy_channel = torch.cat([
+			        xx_channel, yy_channel],
+			        dim=1)
+        xy_channel = rearrange(xy_channel, 'b d h w -> b (h w) d')
+        return xy_channel
     
     def flops(self):
         flops = 0
@@ -380,11 +435,18 @@ class CoAtNet(nn.Module):
         self.fc = nn.Linear(channels[-1], num_classes, bias=False)
 
     def forward(self, x):
-        x = self.s0(x)
-        x = self.s1(x)
-        x = self.s2(x)
-        x = self.s3(x)
-        x = self.s4(x)
+        coords = None
+        for layer in self.s0:
+            x = layer(x)
+        for layer in self.s1:
+            x = layer(x)
+        for layer in self.s2:
+            x = layer(x)
+        for layer in self.s3:
+            x, coords = layer(x, coords)
+        for layer in self.s4:
+            x, coords = layer(x, coords)
+            
 
         x = self.pool(x).view(-1, x.shape[1])
         x = self.fc(x)
@@ -405,7 +467,7 @@ class CoAtNet(nn.Module):
                 else:
                     layers.append(block(oup, oup, image_size, is_LSA=self.is_LSA, is_Coord=self.is_Coord, is_last = False if not (i == depth-1 and is_last) else True))
         # return layers
-        return nn.Sequential(*layers)
+        return layers
 
     def flops(self):
         flops = 0

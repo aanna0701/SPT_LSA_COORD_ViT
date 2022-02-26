@@ -29,9 +29,9 @@ class PreNorm(nn.Module):
         self.num_tokens = num_tokens
         self.norm = nn.LayerNorm(dim)
         self.fn = fn
-    def forward(self, x, **kwargs):
+    def forward(self, x, coords, **kwargs):
         
-        return self.fn(self.norm(x), **kwargs)
+        return self.fn(self.norm(x), coords=coords, **kwargs)
     
     def flops(self):
         flops = 0
@@ -67,8 +67,16 @@ class FeedForward(nn.Module):
                 nn.Dropout(dropout)
             )
   
-    def forward(self, x):
-        return self.net(x)    
+    def forward(self, x, coords):
+        if not self.is_Coord:
+            out = self.net(x)
+        else:
+            out = self.net[0](x, coords)
+            out = self.net[1:3](out)
+            out = self.net[3](out, coords)
+            out = self.net[-1](out)
+        
+        return out
   
     def flops(self):
         flops = 0
@@ -118,9 +126,10 @@ class Attention(nn.Module):
             ) if project_out else nn.Identity()
         
 
-    def forward(self, x):
+    def forward(self, x, coords):
         b, n, _, h = *x.shape, self.heads
-        qkv = self.to_qkv(x).chunk(3, dim = -1)
+        qkv = self.to_qkv(x).chunk(3, dim = -1) if not self.is_Coord else self.to_qkv(x, coords).chunk(3, dim = -1)
+
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = h), qkv)
       
         if not self.is_LSA:
@@ -136,7 +145,13 @@ class Attention(nn.Module):
         out = einsum('b h i j, b h j d -> b h i d', attn, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
         
-        return self.to_out(out)
+        if not self.is_Coord:
+            out = self.to_out(out)
+        else:
+            out = self.to_out[0](out, coords)
+            out = self.to_out[1](out)
+        
+        return out
 
     def flops(self):
         flops = 0
@@ -167,10 +182,10 @@ class Transformer(nn.Module):
             ]))            
             
         self.drop_path = DropPath(stochastic_depth) if stochastic_depth > 0 else nn.Identity()
-    def forward(self, x):
+    def forward(self, x, coords=None):
         for (attn, ff) in self.layers:       
-            x = self.drop_path(attn(x)) + x
-            x = self.drop_path(ff(x)) + x
+            x = self.drop_path(attn(x, coords)) + x
+            x = self.drop_path(ff(x, coords)) + x
             
         return x
 
@@ -309,7 +324,12 @@ class PiT(nn.Module):
         self.apply(init_weights)
 
     def forward(self, img):
-        x = self.to_patch_embedding(img)     
+        if not self.is_Coord:
+            x = self.to_patch_embedding(img)     
+            coords = None
+        else:
+            x, coords = self.to_patch_embedding(img)
+                 
         b, n, _ = x.shape
         cls_tokens = repeat(self.cls_token, '() n d -> b n d', b = b)
         x = torch.cat((cls_tokens, x), dim=1)
@@ -318,7 +338,13 @@ class PiT(nn.Module):
         x = self.dropout(x)
 
         for i, layer in enumerate(self.layers):  
-            x = layer(x)
+            if i % 2 == 0:
+                x = layer(x, coords)
+            else:
+                if self.is_SPT:
+                    x, coords = layer(x)
+                else:
+                    x = layer(x)
 
         return self.mlp_head(x[:, 0])
     
