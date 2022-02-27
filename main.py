@@ -294,8 +294,8 @@ def main(args):
 
     
     # summary(model, torch.rand((1, 3, data_info['img_size'], data_info['img_size'])).cuda())
-    summary(model, (3, data_info['img_size'], data_info['img_size']))
-    # print(model)
+    # summary(model, (3, data_info['img_size'], data_info['img_size']))
+    print(model)
     
     print()
     print("Beginning training")

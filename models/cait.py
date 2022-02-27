@@ -107,9 +107,9 @@ class PreNorm(nn.Module):
         return flops
 
 class FeedForward(nn.Module):
-    def __init__(self, num_tokens, dim, hidden_dim, dropout = 0., is_Coord=False, if_patch_attn=True):
+    def __init__(self, num_tokens, dim, hidden_dim, dropout = 0., is_SCL=False, if_patch_attn=True):
         super().__init__()
-        self.is_Coord = is_Coord
+        self.is_SCL = is_SCL
         self.if_patch_attn = if_patch_attn
         self.dim = dim
         self.hidden_dim = hidden_dim
@@ -125,7 +125,7 @@ class FeedForward(nn.Module):
             )
         
         else:
-            if not is_Coord:
+            if not is_SCL:
                 self.net = nn.Sequential(
                     nn.Linear(dim, hidden_dim),
                     nn.GELU(),
@@ -143,7 +143,7 @@ class FeedForward(nn.Module):
                 )
             
     def forward(self, x, coords=None):
-        if not self.is_Coord or not self.if_patch_attn:
+        if not self.is_SCL or not self.if_patch_attn:
             out = self.net(x)
         else:
             out = self.net[0](x, coords)
@@ -159,7 +159,7 @@ class FeedForward(nn.Module):
             flops += self.dim * self.hidden_dim
             flops += self.dim * self.hidden_dim
         else:
-            if self.is_Coord:
+            if self.is_SCL:
                 flops += (self.dim+2) * self.hidden_dim * self.num_tokens
                 flops += self.dim * (self.hidden_dim+2) * self.num_tokens
             else:
@@ -169,16 +169,16 @@ class FeedForward(nn.Module):
         return flops
 
 class Attention(nn.Module):
-    def __init__(self, dim, num_patches, heads = 8, dim_head = 64, dropout = 0., if_patch_attn=False, is_LSA=False, is_Coord=False):
+    def __init__(self, dim, num_patches, heads = 8, dim_head = 64, dropout = 0., if_patch_attn=False, is_SCL=False):
         super().__init__()
         inner_dim = dim_head *  heads
         self.heads = heads
         self.scale = dim_head ** -0.5
-        self.is_Coord = is_Coord
+        self.is_SCL = is_SCL
         self.dim = dim
         self.inner_dim = inner_dim
         self.num_patches = num_patches
-        if not is_Coord:
+        if not is_SCL or not if_patch_attn:
             self.to_q = nn.Linear(dim, inner_dim, bias = False)
             self.to_kv = nn.Linear(dim, inner_dim * 2, bias = False)
         else:
@@ -190,7 +190,7 @@ class Attention(nn.Module):
         self.mix_heads_pre_attn = nn.Parameter(torch.randn(heads, heads))
         self.mix_heads_post_attn = nn.Parameter(torch.randn(heads, heads))
 
-        if not is_Coord:
+        if not is_SCL or not if_patch_attn:
             self.to_out = nn.Sequential(
                 nn.Linear(inner_dim, dim),
                 nn.Dropout(dropout)
@@ -201,8 +201,7 @@ class Attention(nn.Module):
                 nn.Dropout(dropout)
             )
         
-        self.is_LSA = is_LSA
-        if is_LSA:
+        if is_SCL:
             self.scale = nn.Parameter(self.scale*torch.ones(heads))
             self.mask = torch.eye(num_patches, num_patches)
             self.mask = torch.nonzero((self.mask == 1), as_tuple=False)
@@ -213,10 +212,10 @@ class Attention(nn.Module):
 
         context = x if not exists(context) else context
 
-        qkv = (self.to_q(x), *self.to_kv(context).chunk(2, dim = -1)) if not self.is_Coord else (self.to_q(x, coords), *self.to_kv(context, coords).chunk(2, dim = -1))
+        qkv = (self.to_q(x), *self.to_kv(context).chunk(2, dim = -1)) if not exists(coords) else (self.to_q(x, coords), *self.to_kv(context, coords).chunk(2, dim = -1))
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = h), qkv)
 
-        if not self.is_LSA:
+        if not self.is_SCL:
             dots = einsum('b h i d, b h j d -> b h i j', q, k) * self.scale        
         else:
             """ LSA """
@@ -231,7 +230,7 @@ class Attention(nn.Module):
 
         out = einsum('b h i j, b h j d -> b h i d', attn, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
-        if not self.is_Coord:
+        if not exists(coords):
             out = self.to_out(out)
         else:
             out = self.to_out[0](out, coords)
@@ -243,7 +242,7 @@ class Attention(nn.Module):
         flops = 0
         
         if self.if_patch_attn:
-            if not self.is_Coord:
+            if not self.is_SCL:
                 flops += self.dim * self.inner_dim * 3 * self.num_patches
             else:    
                 flops += (self.dim+2) * self.inner_dim * 3 * self.num_patches
@@ -253,7 +252,7 @@ class Attention(nn.Module):
             flops += self.inner_dim * self.dim * self.num_patches
         
         else:
-            if not self.is_Coord:
+            if not self.is_SCL:
                 flops += self.dim * self.inner_dim 
                 flops += self.dim * self.inner_dim * 2 * (self.num_patches+1)
             else:
@@ -268,15 +267,15 @@ class Attention(nn.Module):
 
 class Transformer(nn.Module):
     def __init__(self, dim, num_patches, depth, heads, dim_head, mlp_dim, dropout = 0., layer_dropout = 0., stochastic_depth=0., 
-                 if_patch_attn=False, is_LSA=False, is_Coord=False):
+                 if_patch_attn=False, is_SCL=False):
         super().__init__()
         self.layers = nn.ModuleList([])
         self.layer_dropout = layer_dropout
 
         for ind in range(depth):
             self.layers.append(nn.ModuleList([
-                LayerScale(dim, PreNorm(num_patches, dim, Attention(dim, num_patches, heads = heads, dim_head = dim_head, dropout = dropout, if_patch_attn=if_patch_attn, is_LSA=is_LSA, is_Coord=is_Coord)), depth = ind + 1),
-                LayerScale(dim, PreNorm(num_patches, dim, FeedForward(num_patches, dim, mlp_dim, dropout = dropout, is_Coord=is_Coord, if_patch_attn=if_patch_attn)), depth = ind + 1)
+                LayerScale(dim, PreNorm(num_patches, dim, Attention(dim, num_patches, heads = heads, dim_head = dim_head, dropout = dropout, if_patch_attn=if_patch_attn, is_SCL=is_SCL)), depth = ind + 1),
+                LayerScale(dim, PreNorm(num_patches, dim, FeedForward(num_patches, dim, mlp_dim, dropout = dropout, is_SCL=is_SCL, if_patch_attn=if_patch_attn)), depth = ind + 1)
             ]))
         self.drop_path = DropPath(stochastic_depth) if stochastic_depth > 0 else nn.Identity()
     
@@ -284,7 +283,6 @@ class Transformer(nn.Module):
         layers = dropout_layers(self.layers, dropout = self.layer_dropout)
 
         for attn, ff in layers:
-            
             x = self.drop_path(attn(x, context = context, coords=coords)) + x
             x = self.drop_path(ff(x, coords=coords)) + x
         return x
@@ -346,8 +344,8 @@ class CaiT(nn.Module):
 
         self.dropout = nn.Dropout(emb_dropout)
 
-        self.patch_transformer = Transformer(dim, num_patches, depth, heads, dim_head, mlp_dim, dropout, layer_dropout, stochastic_depth=stochastic_depth, if_patch_attn=True, is_LSA=is_LSA, is_Coord=is_Coord)
-        self.cls_transformer = Transformer(dim, num_patches, cls_depth, heads, dim_head, mlp_dim, dropout, layer_dropout, stochastic_depth=stochastic_depth, is_LSA=is_LSA)
+        self.patch_transformer = Transformer(dim, num_patches, depth, heads, dim_head, mlp_dim, dropout, layer_dropout, stochastic_depth=stochastic_depth, if_patch_attn=True, is_SCL=is_SCL)
+        self.cls_transformer = Transformer(dim, num_patches, cls_depth, heads, dim_head, mlp_dim, dropout, layer_dropout, stochastic_depth=stochastic_depth, is_SCL=is_SCL)
 
         self.mlp_head = nn.Sequential(
             nn.LayerNorm(dim),
