@@ -110,11 +110,13 @@ def init_parser():
     
     parser.add_argument('--re_r1', default=0.3, type=float, help='aspect of erasing area')
     
-    parser.add_argument('--is_LSA', action='store_true', help='Locality Self-Attention')
+    # parser.add_argument('--is_LSA', action='store_true', help='Locality Self-Attention')
     
-    parser.add_argument('--is_SPT', action='store_true', help='Shifted Patch Tokenization')
+    # parser.add_argument('--is_SPT', action='store_true', help='Shifted Patch Tokenization')
     
-    parser.add_argument('--is_Coord', action='store_true', help='CoordLinear')
+    # parser.add_argument('--is_Coord', action='store_true', help='CoordLinear')
+    
+    parser.add_argument('--is_SCL', action='store_true', help='SCL')
     
     parser.add_argument('--is_MAE', action='store_true', help='Masked Auto Encoder')
     
@@ -292,8 +294,8 @@ def main(args):
 
     
     # summary(model, torch.rand((1, 3, data_info['img_size'], data_info['img_size'])).cuda())
-    # summary(model, (3, data_info['img_size'], data_info['img_size']))
-    print(model)
+    summary(model, (3, data_info['img_size'], data_info['img_size']))
+    # print(model)
     
     print()
     print("Beginning training")
@@ -580,16 +582,21 @@ if __name__ == '__main__':
     
     model_name = args.model
 
-    if not args.is_SPT:
+    if not args.is_SCL:
         model_name += "-Base"
     else:
-        model_name += "-SPT"
+        model_name += "-SCL"
+    
+    # if not args.is_SPT:
+    #     model_name += "-Base"
+    # else:
+    #     model_name += "-SPT"
  
-    if args.is_LSA:
-        model_name += "-LSA"
+    # if args.is_LSA:
+    #     model_name += "-LSA"
         
-    if args.is_Coord:
-        model_name += "-Coord"
+    # if args.is_Coord:
+    #     model_name += "-Coord"
 
     model_name += f"-{args.tag}-{args.dataset}-LR[{args.lr}]-Seed{args.seed}"
             

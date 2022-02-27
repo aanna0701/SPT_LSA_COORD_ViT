@@ -16,21 +16,21 @@ from .Coord import CoordLinear
 from einops import rearrange
 
 class Mlp(nn.Module):
-    def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0., is_Coord=False):
+    def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0., is_SCL=False):
         super().__init__()
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
-        self.fc1 = nn.Linear(in_features, hidden_features) if not is_Coord else CoordLinear(in_features, hidden_features, exist_cls_token=False)
+        self.fc1 = nn.Linear(in_features, hidden_features) if not is_SCL else CoordLinear(in_features, hidden_features, exist_cls_token=False)
         self.act = act_layer()
-        self.fc2 = nn.Linear(hidden_features, out_features) if not is_Coord else CoordLinear(hidden_features, out_features, exist_cls_token=False)
+        self.fc2 = nn.Linear(hidden_features, out_features) if not is_SCL else CoordLinear(hidden_features, out_features, exist_cls_token=False)
         self.drop = nn.Dropout(drop)
-        self.is_Coord = is_Coord
+        self.is_SCL = is_SCL
 
     def forward(self, x, coords):
-        x = self.fc1(x) if not self.is_Coord else self.fc1(x, coords)
+        x = self.fc1(x) if not self.is_SCL else self.fc1(x, coords)
         x = self.act(x)
         x = self.drop(x)
-        x = self.fc2(x) if not self.is_Coord else self.fc2(x, coords)
+        x = self.fc2(x) if not self.is_SCL else self.fc2(x, coords)
         x = self.drop(x)
         return x
 
@@ -78,7 +78,7 @@ class WindowAttention(nn.Module):
         proj_drop (float, optional): Dropout ratio of output. Default: 0.0
     """
 
-    def __init__(self, dim, window_size, num_heads, qkv_bias=True, qk_scale=None, attn_drop=0., proj_drop=0., is_LSA=False, is_Coord=False):
+    def __init__(self, dim, window_size, num_heads, qkv_bias=True, qk_scale=None, attn_drop=0., proj_drop=0., is_SCL=False):
 
         super().__init__()
         self.dim = dim
@@ -86,9 +86,8 @@ class WindowAttention(nn.Module):
         self.num_heads = num_heads
         head_dim = dim // num_heads
         self.scale = qk_scale or head_dim ** -0.5
-        self.is_LSA = is_LSA
-        self.is_Coord = is_Coord
-        if is_LSA:
+        self.is_SCL = is_SCL
+        if is_SCL:
             self.scale = nn.Parameter(self.scale*torch.ones(self.num_heads))
             self.mask = torch.eye((window_size[0]**2), (window_size[0]**2))
             self.mask = torch.nonzero((self.mask == 1), as_tuple=False)
@@ -110,10 +109,9 @@ class WindowAttention(nn.Module):
         relative_coords[:, :, 0] *= 2 * self.window_size[1] - 1
         relative_position_index = relative_coords.sum(-1)  # Wh*Ww, Wh*Ww
         self.register_buffer("relative_position_index", relative_position_index)
-        self.is_Coord = is_Coord
-        self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias) if not is_Coord else CoordLinear(dim, dim * 3, bias=qkv_bias, exist_cls_token=False)
+        self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias) if not is_SCL else CoordLinear(dim, dim * 3, bias=qkv_bias, exist_cls_token=False)
         self.attn_drop = nn.Dropout(attn_drop)
-        self.proj = nn.Linear(dim, dim) if not is_Coord else CoordLinear(dim, dim, exist_cls_token=False)
+        self.proj = nn.Linear(dim, dim) if not is_SCL else CoordLinear(dim, dim, exist_cls_token=False)
         self.proj_drop = nn.Dropout(proj_drop)
 
         trunc_normal_(self.relative_position_bias_table, std=.02)
@@ -126,16 +124,15 @@ class WindowAttention(nn.Module):
             mask: (0/-inf) mask with shape of (num_windows, Wh*Ww, Wh*Ww) or None
         """
         B_, N, C = x.shape
-        if not self.is_Coord:
+        if not self.is_SCL:
             qkv = self.qkv(x).reshape(B_, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
         else:
             qkv = self.qkv(x, coords).reshape(B_, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
         q, k, v = qkv[0], qkv[1], qkv[2]  # make torchscript happy (cannot use tensor as tuple)
 
 
-        if not self.is_LSA:
-            q = q * self.scale
-        
+        if not self.is_SCL:
+            q = q * self.scale        
         else:
             scale = self.scale
             q = torch.mul(q, scale.unsqueeze(0).unsqueeze(-1).unsqueeze(-1).expand((B_, self.num_heads, 1, 1)))
@@ -153,19 +150,19 @@ class WindowAttention(nn.Module):
             attn = attn.view(B_ // nW, nW, self.num_heads, N, N) + mask.unsqueeze(1).unsqueeze(0)
             attn = attn.view(-1, self.num_heads, N, N)
 
-            if self.is_LSA:
+            if self.is_SCL:
                 attn[:, :, self.mask[:, 0], self.mask[:, 1]] = self.inf
             attn = self.softmax(attn)
             
         else:
-            if self.is_LSA:
+            if self.is_SCL:
                 attn[:, :, self.mask[:, 0], self.mask[:, 1]] = self.inf
             attn = self.softmax(attn)
 
         attn = self.attn_drop(attn)
 
         x = (attn @ v).transpose(1, 2).reshape(B_, N, C)
-        x = self.proj(x) if not self.is_Coord else self.proj(x, coords)
+        x = self.proj(x) if not self.is_SCL else self.proj(x, coords)
         x = self.proj_drop(x)
         
         return x
@@ -177,7 +174,7 @@ class WindowAttention(nn.Module):
         # calculate flops for 1 window with token length of N
         flops = 0
         # qkv = self.qkv(x)
-        if not self.is_Coord:
+        if not self.is_SCL:
             flops += N * self.dim * 3 * self.dim
         else:
             flops += N * (self.dim * 3) * (self.dim+2)
@@ -186,7 +183,7 @@ class WindowAttention(nn.Module):
         #  x = (attn @ v)
         flops += self.num_heads * N * N * (self.dim // self.num_heads)
         # x = self.proj(x)
-        if not self.is_Coord:
+        if not self.is_SCL:
             flops += N * self.dim * self.dim
         else:
             flops += N * (self.dim+2) * self.dim
@@ -212,7 +209,7 @@ class SwinTransformerBlock(nn.Module):
 
     def __init__(self, dim, input_resolution, num_heads, window_size=7, shift_size=0,
                  mlp_ratio=4., qkv_bias=True, qk_scale=None, drop=0., attn_drop=0., drop_path=0.,
-                 act_layer=nn.GELU, norm_layer=nn.LayerNorm, is_LSA=False, is_Coord=False, is_last=False):
+                 act_layer=nn.GELU, norm_layer=nn.LayerNorm, is_SCL=False, is_last=False):
         super().__init__()
         self.dim = dim
         self.input_resolution = input_resolution
@@ -220,7 +217,7 @@ class SwinTransformerBlock(nn.Module):
         self.window_size = window_size
         self.shift_size = shift_size
         self.mlp_ratio = mlp_ratio
-        self.is_Coord = is_Coord
+        self.is_SCL = is_SCL
         if min(self.input_resolution) <= self.window_size:
             # if window size is larger than input resolution, we don't partition windows
             self.shift_size = 0
@@ -230,12 +227,12 @@ class SwinTransformerBlock(nn.Module):
         self.norm1 = norm_layer(dim)
         self.attn = WindowAttention(
             dim, window_size=to_2tuple(self.window_size), num_heads=num_heads,
-            qkv_bias=qkv_bias, qk_scale=qk_scale, attn_drop=attn_drop, proj_drop=drop, is_LSA=is_LSA, is_Coord=is_Coord)
+            qkv_bias=qkv_bias, qk_scale=qk_scale, attn_drop=attn_drop, proj_drop=drop, is_SCL=is_SCL)
 
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
         self.norm2 = norm_layer(dim)
         mlp_hidden_dim = int(dim * mlp_ratio)
-        self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop, is_Coord=is_Coord)
+        self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop, is_SCL=is_SCL)
 
         if self.shift_size > 0:
             # calculate attention mask for SW-MSA
@@ -317,7 +314,7 @@ class SwinTransformerBlock(nn.Module):
         nW = H * W / self.window_size / self.window_size
         flops += nW * self.attn.flops(self.window_size * self.window_size)
         # mlp
-        if not self.is_Coord:
+        if not self.is_SCL:
             flops += 2 * H * W * self.dim * self.dim * self.mlp_ratio
         else:    
             flops += H * W * self.dim * (self.dim * self.mlp_ratio + 2)
@@ -396,14 +393,14 @@ class BasicLayer(nn.Module):
     def __init__(self, dim, input_resolution, depth, num_heads, window_size, 
                  mlp_ratio=4., qkv_bias=True, qk_scale=None, drop=0., attn_drop=0.,
                  drop_path=0., norm_layer=nn.LayerNorm, downsample=False, use_checkpoint=False,
-                 is_LSA=False, is_SPT=False, is_Coord=False, is_last=False):
+                 is_SCL=False, is_last=False):
 
         super().__init__()
         self.dim = dim
         self.input_resolution = input_resolution
         self.depth = depth
         self.use_checkpoint = use_checkpoint
-        self.is_SPT = is_SPT
+        self.is_SCL = is_SCL
         
         # build blocks
         self.blocks = nn.ModuleList([
@@ -414,12 +411,12 @@ class BasicLayer(nn.Module):
                                  qkv_bias=qkv_bias, qk_scale=qk_scale,
                                  drop=drop, attn_drop=attn_drop,
                                  drop_path=drop_path[i] if isinstance(drop_path, list) else drop_path,
-                                 norm_layer=norm_layer, is_LSA=is_LSA, is_Coord=is_Coord, is_last=True if (i == depth-1 and is_last) else False)
+                                 norm_layer=norm_layer, is_SCL=is_SCL, is_last=True if (i == depth-1 and is_last) else False)
             for i in range(depth)])
 
         # patch merging layer
         if downsample:
-            if not is_SPT:
+            if not is_SCL:
                 self.downsample = PatchMerging(input_resolution, dim=dim, norm_layer=norm_layer)
             else:
                 self.downsample = ShiftedPatchTokenization(input_resolution[0]*input_resolution[1], dim, dim*2, 2)
@@ -436,7 +433,7 @@ class BasicLayer(nn.Module):
                 #print(x.shape)
                 x = blk(x, coords, coords_attnd)
         if self.downsample is not None:
-            if self.is_SPT:
+            if self.is_SCL:
                 x, coords = self.downsample(x)
             else:
                 x = self.downsample(x)
@@ -529,7 +526,7 @@ class SwinTransformer(nn.Module):
                  window_size=7, mlp_ratio=4., qkv_bias=True, qk_scale=None,
                  drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1,
                  norm_layer=nn.LayerNorm, patch_norm=True,
-                 use_checkpoint=False, is_LSA=False, is_SPT=False, is_Coord=False,
+                 use_checkpoint=False, is_SCL=False,
                  **kwargs):
         super().__init__()
            
@@ -540,10 +537,10 @@ class SwinTransformer(nn.Module):
         self.patch_norm = patch_norm
         self.num_features = int(embed_dim * 2 ** (self.num_layers - 1))
         self.mlp_ratio = mlp_ratio
-        self.is_Coord = is_Coord
+        self.is_SCL = is_SCL
         
         """ Base """
-        if not is_SPT:
+        if not is_SCL:
             self.patch_embed = PatchEmbed(
                 img_size=img_size, patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dim,
                 norm_layer=norm_layer if self.patch_norm else None)     
@@ -554,7 +551,7 @@ class SwinTransformer(nn.Module):
             self.img_resolution = (img_size//patch_size, img_size//patch_size)  
         
         # absolute position embedding
-        if not is_Coord:
+        if not is_SCL:
             self.absolute_pos_embed = nn.Parameter(torch.zeros(1, self.img_resolution[0]**2, embed_dim))
             trunc_normal_(self.absolute_pos_embed, std=.02)
 
@@ -581,7 +578,7 @@ class SwinTransformer(nn.Module):
                                qkv_bias=qkv_bias, qk_scale=qk_scale,
                                drop=drop_rate, attn_drop=attn_drop_rate,
                                drop_path=dpr[sum(depths[:i_layer]):sum(depths[:i_layer + 1])],
-                               norm_layer=norm_layer, is_LSA=is_LSA, is_SPT=is_SPT, is_Coord=is_Coord,
+                               norm_layer=norm_layer, is_SCL=is_SCL,
                                downsample=True if (i_layer < self.num_layers - 1) else False,
                                use_checkpoint=use_checkpoint,
                                is_last = False if not i_layer == self.num_layers-1 else True)
@@ -608,17 +605,17 @@ class SwinTransformer(nn.Module):
 
     
     def forward_features(self, x):
-        if self.is_Coord:
+        if self.is_SCL:
             coords_attnd = self.addcoords(1, self.window_size, self.window_size)
         else:
-            coords_attnd = None
-        if not self.is_Coord:
+            coords_attnd = torch.rand(1)
+        if not self.is_SCL:
             x = self.patch_embed(x)
-            coords = None
+            coords = torch.rand(1)
         else:
             x, coords = self.patch_embed(x)
             
-        if not self.is_Coord:
+        if not self.is_SCL:
             x = x + self.absolute_pos_embed
         x = self.pos_drop(x)
         

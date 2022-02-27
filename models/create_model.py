@@ -87,9 +87,9 @@ def create_model(img_size, n_classes, args):
                 
             model = SwinTransformer(img_size=img_size, window_size=window_size, drop_path_rate=0.1, embed_dim=embed_dim,
                                     patch_size=patch_size, mlp_ratio=mlp_ratio, depths=depths, num_heads=num_heads, num_classes=n_classes, 
-                                    is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
+                                    is_SCL=args.is_SCL)
         else:
-            model = SwinTransformer(is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
+            model = SwinTransformer(is_SCL=args.is_SCL)
         
     elif args.model =='coatnet_0':
         model = coatnet_0(img_size=img_size, n_classes=n_classes, is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord)
