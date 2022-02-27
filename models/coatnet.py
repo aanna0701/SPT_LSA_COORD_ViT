@@ -290,7 +290,7 @@ class Transformer(nn.Module):
             self.proj = nn.Conv2d(self.inp, oup, 1, 1, 0, bias=False)      
 
         self.attn = Attention(self.inp, oup, image_size, heads, dim_head, dropout, is_SCL=is_SCL)
-        self.ff = FeedForward(image_size, oup, hidden_dim, dropout, is_SCL=is_SCL if not is_last else False)
+        self.ff = FeedForward(image_size, oup, hidden_dim, dropout, is_SCL=is_SCL)
 
         self.attn = nn.Sequential(
             Rearrange('b c ih iw -> b (ih iw) c'),
