@@ -315,9 +315,7 @@ class CaiT(nn.Module):
         emb_dropout = 0.,
         layer_dropout = 0.,
         stochastic_depth = 0.,
-        is_LSA=False,
-        is_SPT=False,
-        is_Coord=False
+        is_SCL=False
     ):
         super().__init__()
         
@@ -327,10 +325,9 @@ class CaiT(nn.Module):
         num_patches = (image_height // patch_height) * (image_width // patch_width)
         self.dim = dim
         self.num_classes = num_classes
-        self.is_SPT = is_SPT
-        self.is_Coord = is_Coord
+        self.is_SCL = is_SCL
         
-        if not is_SPT:
+        if not is_SCL:
             patch_dim = 3 * patch_size ** 2
             
             self.to_patch_embedding = nn.Sequential(
@@ -340,10 +337,10 @@ class CaiT(nn.Module):
             self.pe_flops = patch_dim * dim * num_patches
         
         else:
-            self.to_patch_embedding = ShiftedPatchTokenization(img_size**2, 3, dim, patch_size, is_pe=True, is_Coord=is_Coord)     
+            self.to_patch_embedding = ShiftedPatchTokenization(img_size**2, 3, dim, patch_size, is_pe=True, is_Coord=is_SCL)     
         
         
-        if not is_Coord:
+        if not is_SCL:
             self.pos_embedding = nn.Parameter(torch.randn(1, num_patches, dim))
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
 
@@ -360,7 +357,7 @@ class CaiT(nn.Module):
         self.apply(init_weights)
 
     def forward(self, img):
-        if not self.is_Coord:
+        if not self.is_SCL:
             x = self.to_patch_embedding(img)
             coords = None
         else:
@@ -368,7 +365,7 @@ class CaiT(nn.Module):
             
         b, n, _ = x.shape
 
-        if not self.is_Coord:
+        if not self.is_SCL:
             x += self.pos_embedding[:, :n]
         x = self.dropout(x)
 
@@ -382,7 +379,7 @@ class CaiT(nn.Module):
     def flops(self):
         flops = 0
         
-        flops_pe = self.pe_flops if not self.is_SPT else self.to_patch_embedding.flops()
+        flops_pe = self.pe_flops if not self.is_SCL else self.to_patch_embedding.flops()
         flops += flops_pe
         
         flops += self.patch_transformer.flops()   
