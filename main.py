@@ -271,8 +271,8 @@ def main(args):
     
     if args.is_MAE:
         augmentations = [
-           transforms.RandomCrop(data_info['img_size'], padding=4),
             transforms.RandomHorizontalFlip(),
+            transforms.RandomCrop(data_info['img_size'], padding=4),
             transforms.ToTensor(),
             *normalize
         ]

@@ -5,9 +5,8 @@ from einops import rearrange
     
 class AddCoords(nn.Module):
     
-    def __init__(self, with_r=False):
+    def __init__(self):
         super().__init__()
-        self.with_r = with_r
 
     def forward(self, input_tensor):
         """
@@ -33,19 +32,15 @@ class AddCoords(nn.Module):
             xx_channel.type_as(input_tensor),
             yy_channel.type_as(input_tensor)], dim=1)
 
-        if self.with_r:
-            rr = torch.sqrt(torch.pow(xx_channel.type_as(input_tensor) - 0.5, 2) + torch.pow(yy_channel.type_as(input_tensor) - 0.5, 2))
-            ret = torch.cat([ret, rr], dim=1)
-
         return ret
 
 
 class CoordConv(nn.Module):
 
-    def __init__(self, in_channels, out_channels, kernel_size, bias=True, with_r=False, **kwargs):
+    def __init__(self, in_channels, out_channels, kernel_size, bias=True, **kwargs):
         super().__init__()
         in_size = in_channels+2
-        self.conv = nn.Conv2d(in_size, out_channels, kernel_size=kernel_size, **kwargs)
+        self.conv = nn.Conv2d(in_size, out_channels, kernel_size=kernel_size, bias=bias,**kwargs)
 
     def forward(self, x, coords):
         ret = torch.cat([
@@ -55,9 +50,8 @@ class CoordConv(nn.Module):
 
 class AddCoords1D(nn.Module):
     
-    def __init__(self, with_r=False):
+    def __init__(self):
         super().__init__()
-        self.with_r = with_r
         
     def forward(self, input_tensor):
         """
@@ -87,9 +81,6 @@ class AddCoords1D(nn.Module):
             xx_channel.type_as(input_tensor),
             yy_channel.type_as(input_tensor)], dim=1)
       
-        if self.with_r:
-            rr = torch.sqrt(torch.pow(xx_channel.type_as(input_tensor) - 0.5, 2) + torch.pow(yy_channel.type_as(input_tensor) - 0.5, 2))
-            ret = torch.cat([ret, rr], dim=1)
 
         ret = rearrange(ret, 'b d h w -> b (h w) d')
 
@@ -98,12 +89,9 @@ class AddCoords1D(nn.Module):
 
 class CoordLinear(nn.Module):
 
-    def __init__(self, in_channels, out_channels, bias=True, with_r=False, exist_cls_token=True):
+    def __init__(self, in_channels, out_channels, bias=True, exist_cls_token=True):
         super().__init__()
-        self.addcoords = AddCoords1D(with_r=with_r)
         in_size = in_channels+2
-        if with_r:
-            in_size += 1
         self.linear = nn.Linear(in_size, out_channels, bias=bias)
         
         self.exist_cls_token = exist_cls_token
