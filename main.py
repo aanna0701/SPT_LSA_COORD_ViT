@@ -31,8 +31,7 @@ best_acc1 = -987654321
 MODELS = ['vit', 'swin_t','swin_s','swin_b','swin_l', 'pit', 
           'cait_xxs24', 'cait_xs24', 'cait_s24', 'cait_xxs36', 't2t', 'effiv2', 'res110', 'effib0' 
           'regnetX_400m', 'regnetY_4G', 'regnetY_8G', 'effiv2_m', 'regnetX_200m', 'regnetY_400m', 'regnetY_200m',
-          'coatnet_0', 'coatnet_1', 'coatnet_2', 'coatnet_3', 'coatnet2_0', 'coatnet2_1', 
-          'coatnet3_0', 'vit_s', 'alter50', 'alter101', 'alter152']
+          'coatnet_0', 'coatnet_1', 'coatnet_2', 'coatnet_3']
 
 
 
@@ -55,7 +54,7 @@ def init_parser():
     
     parser.add_argument('-b', '--batch_size', default=128, type=int, metavar='N', help='mini-batch size (default: 128)', dest='batch_size')
     
-    parser.add_argument('--lr', default=0.001, type=float, help='initial learning rate')
+    parser.add_argument('--lr', default=0.003, type=float, help='initial learning rate')
     
     parser.add_argument('--weight-decay', default=5e-2, type=float, help='weight decay (default: 1e-4)')
 
@@ -110,20 +109,8 @@ def init_parser():
     
     parser.add_argument('--re_r1', default=0.3, type=float, help='aspect of erasing area')
     
-    # parser.add_argument('--is_LSA', action='store_true', help='Locality Self-Attention')
-    
-    # parser.add_argument('--is_SPT', action='store_true', help='Shifted Patch Tokenization')
-    
-    # parser.add_argument('--is_Coord', action='store_true', help='CoordLinear')
-    
     parser.add_argument('--is_SCL', action='store_true', help='SCL')
-    
-    parser.add_argument('--is_MAE', action='store_true', help='Masked Auto Encoder')
-    
-    parser.add_argument('--MAE_ratio', default=0.75, type=float,help='Masking ratio')
-    
-    parser.add_argument('--MAE_path', default='', type=str,help='MAE path')
-    
+        
     parser.add_argument('--fine_path', default='', type=str,help='MAE path')
 
     return parser
@@ -138,30 +125,6 @@ def main(args):
     
     model = create_model(data_info['img_size'], data_info['n_classes'], args)    
     
-    if args.is_MAE:
-        args.ls = False
-        args.sd = 0
-        args.cm = False
-        args.mu = False
-        args.ra = 1
-        args.aa = False
-        args.re = 0
-        args.is_Coord = False
-        # args.lr *= .1
-        # args.batch_size *= 4
-        
-        model = create_model(data_info['img_size'], data_info['n_classes'], args)
-        
-        from models.mae import MAE
-        mae = MAE(
-            encoder = model,
-            masking_ratio = args.MAE_ratio,   # the paper recommended 75% masked patches
-            decoder_dim = 512,      # paper showed good results with just 512
-            decoder_depth = 8,       # anywhere from 1 to 8
-            is_SPT=args.is_SPT, is_LSA=args.is_LSA, is_Coord=args.is_Coord
-        )
-        mae.cuda(args.gpu)
-        
     if not args.fine_path == '':
         model = create_model(224, 1000, args)
         
@@ -271,16 +234,8 @@ def main(args):
             *normalize
         ]
     
-    if args.is_MAE:
-        augmentations = [
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomCrop(data_info['img_size'], padding=4),
-            transforms.ToTensor(),
-            *normalize
-        ]
-    
     augmentations = transforms.Compose(augmentations)
-      
+    
     train_dataset, val_dataset = dataload(args, augmentations, normalize, data_info)
 
     train_loader = torch.utils.data.DataLoader(
@@ -300,14 +255,6 @@ def main(args):
     print()
     print("Beginning training")
     print()
-        
-
-    if not args.MAE_path == '':
-        print(os.path.join(args.MAE_path, 'mae_checkpoint.pth'))
-        print("Using MAE pretrained model !!!")
-        checkpoint = torch.load(os.path.join(args.MAE_path, 'mae_checkpoint.pth'))
-        model.load_state_dict(checkpoint['model_state_dict'])
-        save_path = args.MAE_path
 
     if not args.fine_path == '':
         print(args.fine_path)
@@ -374,7 +321,7 @@ def main(args):
             'optimizer_state_dict': optimizer.state_dict(),
             'scheduler': scheduler.state_dict(), 
             }, 
-            os.path.join(save_path, 'checkpoint.pth')if not args.is_MAE else os.path.join(save_path, 'mae_checkpoint.pth'))
+            os.path.join(save_path, 'checkpoint.pth'))
         
         logger_dict.print()
         
@@ -387,7 +334,7 @@ def main(args):
                     'epoch': epoch,
                     'optimizer_state_dict': optimizer.state_dict(),
                     'scheduler': scheduler.state_dict(),
-                }, os.path.join(save_path, 'best.pth') if not args.is_MAE else os.path.join(save_path, 'mae_best.pth'))         
+                }, os.path.join(save_path, 'best.pth'))         
         
         print(f'Best acc1 {best_acc1:.6f}')
         print('*'*80)
@@ -415,81 +362,76 @@ def train(train_loader, model, criterion, optimizer, epoch, scheduler,  args):
             images = images.cuda(args.gpu, non_blocking=True)
             target = target.cuda(args.gpu, non_blocking=True)
         
-        if not args.is_MAE:        
-            # Cutmix only
-            if args.cm and not args.mu:
-                r = np.random.rand(1)
-                if r < args.mix_prob:
+        # Cutmix only
+        if args.cm and not args.mu:
+            r = np.random.rand(1)
+            if r < args.mix_prob:
+                slicing_idx, y_a, y_b, lam, sliced = cutmix_data(images, target, args)
+                images[:, :, slicing_idx[0]:slicing_idx[2], slicing_idx[1]:slicing_idx[3]] = sliced
+                output = model(images)
+                
+                loss =  mixup_criterion(criterion, output, y_a, y_b, lam)
+                
+            else:
+                output = model(images)
+                
+                loss = criterion(output, target)
+                            
+                
+        # Mixup only
+        elif not args.cm and args.mu:
+            r = np.random.rand(1)
+            if r < args.mix_prob:
+                images, y_a, y_b, lam = mixup_data(images, target, args)
+                output = model(images)
+                
+                loss =  mixup_criterion(criterion, output, y_a, y_b, lam)
+                
+            else:
+                output = model(images)
+                
+                loss =  criterion(output, target)
+                
+                
+        # Both Cutmix and Mixup
+        elif args.cm and args.mu:
+            r = np.random.rand(1)
+            if r < args.mix_prob:
+                switching_prob = np.random.rand(1)
+                
+                # Cutmix
+                if switching_prob < 0.5:
                     slicing_idx, y_a, y_b, lam, sliced = cutmix_data(images, target, args)
                     images[:, :, slicing_idx[0]:slicing_idx[2], slicing_idx[1]:slicing_idx[3]] = sliced
                     output = model(images)
                     
                     loss =  mixup_criterion(criterion, output, y_a, y_b, lam)
                     
+                # Mixup
                 else:
-                    output = model(images)
-                    
-                    loss = criterion(output, target)
-                                
-                    
-            # Mixup only
-            elif not args.cm and args.mu:
-                r = np.random.rand(1)
-                if r < args.mix_prob:
                     images, y_a, y_b, lam = mixup_data(images, target, args)
                     output = model(images)
                     
-                    loss =  mixup_criterion(criterion, output, y_a, y_b, lam)
+                    loss = mixup_criterion(criterion, output, y_a, y_b, lam) 
                     
-                else:
-                    output = model(images)
-                    
-                    loss =  criterion(output, target)
-                    
-                    
-            # Both Cutmix and Mixup
-            elif args.cm and args.mu:
-                r = np.random.rand(1)
-                if r < args.mix_prob:
-                    switching_prob = np.random.rand(1)
-                    
-                    # Cutmix
-                    if switching_prob < 0.5:
-                        slicing_idx, y_a, y_b, lam, sliced = cutmix_data(images, target, args)
-                        images[:, :, slicing_idx[0]:slicing_idx[2], slicing_idx[1]:slicing_idx[3]] = sliced
-                        output = model(images)
-                        
-                        loss =  mixup_criterion(criterion, output, y_a, y_b, lam)
-                        
-                    # Mixup
-                    else:
-                        images, y_a, y_b, lam = mixup_data(images, target, args)
-                        output = model(images)
-                        
-                        loss = mixup_criterion(criterion, output, y_a, y_b, lam) 
-                        
-                else:
-                    output = model(images)
-                    
-                    loss = criterion(output, target) 
-            
-            # No Mix
             else:
                 output = model(images)
-                                    
-                loss = criterion(output, target)
+                
+                loss = criterion(output, target) 
         
-            acc = accuracy(output, target, (1,))
-            acc1 = acc[0]
-            n += images.size(0)
-            loss_val += float(loss.item() * images.size(0))
-            acc1_val += float(acc1[0] * images.size(0))
-            
-
+        # No Mix
         else:
-            loss = mae(images)
-            n += images.size(0)
-            loss_val += float(loss.item() * images.size(0))
+            output = model(images)
+                                
+            loss = criterion(output, target)
+    
+        acc = accuracy(output, target, (1,))
+        acc1 = acc[0]
+        n += images.size(0)
+        loss_val += float(loss.item() * images.size(0))
+        acc1_val += float(acc1[0] * images.size(0))
+        
+
 
         optimizer.zero_grad()
         loss.backward()
@@ -498,19 +440,14 @@ def train(train_loader, model, criterion, optimizer, epoch, scheduler,  args):
         lr = optimizer.param_groups[0]["lr"]
 
         if args.print_freq >= 0 and i % args.print_freq == 0:
-            if not args.is_MAE:
-                avg_loss, avg_acc1 = (loss_val / n), (acc1_val / n)
-                progress_bar(i, len(train_loader),f'[Epoch {epoch+1}/{args.epochs}][T][{i}]   Loss: {avg_loss:.4e}   Top-1: {avg_acc1:6.2f}   LR: {lr:.7f}'+' '*10)
-            else:
-                avg_loss = (loss_val / n)
-                progress_bar(i, len(train_loader),f'[Epoch {epoch+1}/{args.epochs}][T][{i}]   Loss: {avg_loss:.4e}   LR: {lr:.7f}'+' '*10)
+            avg_loss, avg_acc1 = (loss_val / n), (acc1_val / n)
+            progress_bar(i, len(train_loader),f'[Epoch {epoch+1}/{args.epochs}][T][{i}]   Loss: {avg_loss:.4e}   Top-1: {avg_acc1:6.2f}   LR: {lr:.7f}'+' '*10)
+            
+    logger_dict.update(keys[0], avg_loss)
+    logger_dict.update(keys[1], avg_acc1)
+    writer.add_scalar("Loss/train", avg_loss, epoch)
+    writer.add_scalar("Acc/train", avg_acc1, epoch)
 
-    if not args.is_MAE:
-        logger_dict.update(keys[0], avg_loss)
-        logger_dict.update(keys[1], avg_acc1)
-        writer.add_scalar("Loss/train", avg_loss, epoch)
-        writer.add_scalar("Acc/train", avg_acc1, epoch)
-    
     return lr
 
 def validate(val_loader, model, criterion, lr, args, epoch=None):
@@ -524,41 +461,31 @@ def validate(val_loader, model, criterion, lr, args, epoch=None):
                 images = images.cuda(args.gpu, non_blocking=True)
                 target = target.cuda(args.gpu, non_blocking=True)
 
-            if not args.is_MAE:
-                output = model(images)
-                loss = criterion(output, target)
-                acc = accuracy(output, target, (1, 5))
-                acc1 = acc[0]
-                n += images.size(0)
-                loss_val += float(loss.item() * images.size(0))
-                acc1_val += float(acc1[0] * images.size(0))
+            output = model(images)
+            loss = criterion(output, target)
+            acc = accuracy(output, target, (1, 5))
+            acc1 = acc[0]
+            n += images.size(0)
+            loss_val += float(loss.item() * images.size(0))
+            acc1_val += float(acc1[0] * images.size(0))
 
-            else:
-                loss = mae(images)
-                n += images.size(0)
-                loss_val += float(loss.item() * images.size(0))
+            
 
             if args.print_freq >= 0 and i % args.print_freq == 0:
-                if not args.is_MAE:
-                    avg_loss, avg_acc1 = (loss_val / n), (acc1_val / n)
-                    progress_bar(i, len(val_loader), f'[Epoch {epoch+1}][V][{i}]   Loss: {avg_loss:.4e}   Top-1: {avg_acc1:6.2f}   LR: {lr:.6f}')
-                else:    
-                    avg_loss = (loss_val / n)
-                    progress_bar(i, len(val_loader), f'[Epoch {epoch+1}][V][{i}]   Loss: {avg_loss:.4e}   LR: {lr:.6f}')
-   
+                avg_loss, avg_acc1 = (loss_val / n), (acc1_val / n)
+                progress_bar(i, len(val_loader), f'[Epoch {epoch+1}][V][{i}]   Loss: {avg_loss:.4e}   Top-1: {avg_acc1:6.2f}   LR: {lr:.6f}')
+                
     print()        
     print(Fore.BLUE)
     print('*'*80)
     
-    if not args.is_MAE:
-        logger_dict.update(keys[2], avg_loss)
-        logger_dict.update(keys[3], avg_acc1)
-        
-        writer.add_scalar("Loss/val", avg_loss, epoch)
-        writer.add_scalar("Acc/val", avg_acc1, epoch)
+    logger_dict.update(keys[2], avg_loss)
+    logger_dict.update(keys[3], avg_acc1)
+    
+    writer.add_scalar("Loss/val", avg_loss, epoch)
+    writer.add_scalar("Acc/val", avg_acc1, epoch)
 
-    if args.is_MAE:
-        avg_acc1 = -avg_loss
+    
     
     return avg_acc1
 
@@ -599,10 +526,7 @@ if __name__ == '__main__':
     #     model_name += "-Coord"
 
     model_name += f"-{args.tag}-{args.dataset}-LR[{args.lr}]-Seed{args.seed}"
-            
-    if args.is_MAE:
-        model_name += "-MAE"
-        
+    
     if not args.fine_path == '':
         model_name += "-Finetuning"
     
