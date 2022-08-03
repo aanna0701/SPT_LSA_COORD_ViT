@@ -34,7 +34,7 @@ class hessian():
         iii) the estimated eigenvalue density
     """
 
-    def __init__(self, model, criterion, data=None, dataloader=None, cuda=True):
+    def __init__(self, model, data, criterion, mixup_criterion, cuda=True):
         """
         model: the model that needs Hessain information
         criterion: the loss function
@@ -42,19 +42,8 @@ class hessian():
         dataloader: the data loader including bunch of batches of data
         """
 
-        # make sure we either pass a single batch or a dataloader
-        assert (data != None and dataloader == None) or (data == None and
-                                                         dataloader != None)
-
         self.model = model.eval()  # make model is in evaluation model
         self.criterion = criterion
-
-        if data != None:
-            self.data = data
-            self.full_dataset = False
-        else:
-            self.data = dataloader
-            self.full_dataset = True
 
         if cuda:
             self.device = 'cuda'
@@ -62,16 +51,19 @@ class hessian():
             self.device = 'cpu'
 
         # pre-processing for single batch case to simplify the computation.
-        if not self.full_dataset:
-            self.inputs, self.targets = self.data
-            if self.device == 'cuda':
-                self.inputs, self.targets = self.inputs.cuda(
-                ), self.targets.cuda()
+        self.inputs, self.targets = data
+        if self.device == 'cuda':
+            self.inputs, self.targets = self.inputs.cuda(
+            ), self.targets.cuda()
 
+        if mixup_criterion is None:
             # if we only compute the Hessian information for a single batch data, we can re-use the gradients.
             outputs = self.model(self.inputs)
             loss = self.criterion(outputs, self.targets)
             loss.backward(create_graph=True)
+
+        else:
+            pass
 
         # this step is used to extract the parameters from the model
         params, gradsH = get_params_grad(self.model)
@@ -135,11 +127,8 @@ class hessian():
                 v = orthnormal(v, eigenvectors)
                 self.model.zero_grad()
 
-                if self.full_dataset:
-                    tmp_eigenvalue, Hv = self.dataloader_hv_product(v)
-                else:
-                    Hv = hessian_vector_product(self.gradsH, self.params, v)
-                    tmp_eigenvalue = group_product(Hv, v).cpu().item()
+                Hv = hessian_vector_product(self.gradsH, self.params, v)
+                tmp_eigenvalue = group_product(Hv, v).cpu().item()
 
                 v = normalization(Hv)
 

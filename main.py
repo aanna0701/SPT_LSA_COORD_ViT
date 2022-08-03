@@ -25,7 +25,7 @@ from models.create_model import create_model
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 import warnings
-from pyhessian import hessian
+from PyHessian.pyhessian import hessian
 
 warnings.filterwarnings("ignore", category=Warning)
 
@@ -386,10 +386,13 @@ def train(train_loader, model, criterion, optimizer, epoch, scheduler,  args):
     n = 0
     top_eigenvalues = list()
     
+    
     for i, (images, target) in enumerate(train_loader):
         if (not args.no_cuda) and torch.cuda.is_available():
             images = images.cuda(args.gpu, non_blocking=True)
             target = target.cuda(args.gpu, non_blocking=True)
+        
+        hess_mix = False
         
         # Cutmix only
         if not args.disable_aug and not args.no_cm and args.no_mu:
@@ -401,6 +404,7 @@ def train(train_loader, model, criterion, optimizer, epoch, scheduler,  args):
                 output = model(images)
                 
                 loss =  mixup_criterion(criterion, output, y_a, y_b, lam)
+                hess_mix = True
                 
             else:
                 output = model(images)
@@ -416,6 +420,7 @@ def train(train_loader, model, criterion, optimizer, epoch, scheduler,  args):
                 output = model(images)
                 
                 loss =  mixup_criterion(criterion, output, y_a, y_b, lam)
+                hess_mix = True
                 
             else:
                 output = model(images)
@@ -436,6 +441,7 @@ def train(train_loader, model, criterion, optimizer, epoch, scheduler,  args):
                     output = model(images)
                     
                     loss =  mixup_criterion(criterion, output, y_a, y_b, lam)
+                    hess_mix = True
                     
                 # Mixup
                 else:
@@ -443,6 +449,7 @@ def train(train_loader, model, criterion, optimizer, epoch, scheduler,  args):
                     output = model(images)
                     
                     loss = mixup_criterion(criterion, output, y_a, y_b, lam)
+                    hess_mix = True
                     
             else:
                 output = model(images)
@@ -461,6 +468,19 @@ def train(train_loader, model, criterion, optimizer, epoch, scheduler,  args):
         loss_val += float(loss.item() * images.size(0))
         acc1_val += float(acc1[0] * images.size(0))   
 
+        if args.hessian:
+            if not hess_mix:
+                # create the hessian computation module
+                hessian_comp = hessian(model, (images, target), criterion, None)
+            else:
+                target = lam * y_a + (1-lam) * y_b
+                hessian_comp = hessian(model, (images, target), criterion, mixup_criterion, None)
+                
+            # Now let's compute the top eigenvalue. This only takes a few seconds.
+            top_eigenvalue, _ = hessian_comp.eigenvalues()
+            top_eigenvalues.append(round(top_eigenvalue[-1]))
+            print(f"The top Hessian eigenvalue of this model is {top_eigenvalues}")
+            model.train()
         
         optimizer.zero_grad()
         loss.backward()
@@ -472,14 +492,7 @@ def train(train_loader, model, criterion, optimizer, epoch, scheduler,  args):
             avg_loss, avg_acc1 = (loss_val / n), (acc1_val / n)
             progress_bar(i, len(train_loader),f'[Epoch {epoch+1}/{args.epochs}][T][{i}]   Loss: {avg_loss:.4e}   Top-1: {avg_acc1:6.2f}   LR: {lr:.7f}'+' '*10)
         
-        if args.hessian:
-            # create the hessian computation module
-            hessian_comp = hessian(model)
-            # Now let's compute the top eigenvalue. This only takes a few seconds.
-            top_eigenvalue, _ = hessian_comp.eigenvalues()
-            top_eigenvalues.append(round(top_eigenvalue[-1]))
-            print(f"The top Hessian eigenvalue of this model is {top_eigenvalues}")
-            model.train()
+        
         
     logger_dict.update(keys[0], avg_loss)
     logger_dict.update(keys[1], avg_acc1)
