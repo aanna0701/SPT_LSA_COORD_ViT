@@ -313,7 +313,7 @@ class CaiT(nn.Module):
         emb_dropout = 0.,
         layer_dropout = 0.,
         stochastic_depth = 0.,
-        is_SCL=False
+        is_SPT=False, is_LSA=False, is_Coord=False
     ):
         super().__init__()
         

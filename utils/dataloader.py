@@ -36,7 +36,7 @@ def datainfo(logger, args):
         img_mean, img_std = (0.4802, 0.4481, 0.3975), (0.2770, 0.2691, 0.2821)
         img_size = 64
         
-    if not args.fine_path=='':
+    if not args.pretrained_path=='':
         img_mean, img_std = (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)
         
     data_info = dict()
@@ -52,7 +52,7 @@ def dataload(args, augmentations, normalize, data_info):
             root=args.data_path, train=True, download=True, transform=augmentations)
         val_dataset = datasets.CIFAR10(
             root=args.data_path, train=False, download=False, transform=transforms.Compose([
-            transforms.Resize(data_info['img_size']) if args.fine_path=='' else transforms.Resize(224),
+            transforms.Resize(data_info['img_size']) if args.pretrained_path=='' else transforms.Resize(224),
             transforms.ToTensor(),
             *normalize]))
         
@@ -62,7 +62,7 @@ def dataload(args, augmentations, normalize, data_info):
             root=args.data_path, train=True, download=True, transform=augmentations)
         val_dataset = datasets.CIFAR100(
             root=args.data_path, train=False, download=False, transform=transforms.Compose([
-            transforms.Resize(data_info['img_size']) if args.fine_path=='' else transforms.Resize(224),
+            transforms.Resize(data_info['img_size']) if args.pretrained_path=='' else transforms.Resize(224),
             transforms.ToTensor(),
             *normalize]))
         
@@ -72,7 +72,7 @@ def dataload(args, augmentations, normalize, data_info):
             root=args.data_path, split='train', download=True, transform=augmentations)
         val_dataset = datasets.SVHN(
             root=args.data_path, split='test', download=True, transform=transforms.Compose([
-            transforms.Resize(data_info['img_size'] if args.fine_path=='' else transforms.Resize(224)),
+            transforms.Resize(data_info['img_size'] if args.pretrained_path=='' else transforms.Resize(224)),
             transforms.ToTensor(),
             *normalize]))
         
@@ -82,7 +82,7 @@ def dataload(args, augmentations, normalize, data_info):
         val_dataset = datasets.ImageFolder(
             root=os.path.join(args.data_path, 'tiny_imagenet', 'val'), 
             transform=transforms.Compose([
-            transforms.Resize(data_info['img_size']) if args.fine_path=='' else transforms.Resize(224), 
+            transforms.Resize(data_info['img_size']) if args.pretrained_path=='' else transforms.Resize(224), 
             transforms.ToTensor(), 
             *normalize]))
     

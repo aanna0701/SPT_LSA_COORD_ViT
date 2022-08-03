@@ -270,7 +270,7 @@ def pair(t):
 class PiT(nn.Module):
     def __init__(self, *, img_size, patch_size, num_classes, dim, depth, heads, mlp_dim_ratio, dim_head = 64, dropout = 0., 
                  emb_dropout = 0., stochastic_depth=0., 
-                 is_SCL=False):
+                 is_SPT=False, is_LSA=False, is_Coord=False):
         super(PiT, self).__init__()
         heads = cast_tuple(heads, len(depth))
         self.num_classes = num_classes

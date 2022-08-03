@@ -526,7 +526,7 @@ class SwinTransformer(nn.Module):
                  window_size=7, mlp_ratio=4., qkv_bias=True, qk_scale=None,
                  drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1,
                  norm_layer=nn.LayerNorm, patch_norm=True,
-                 use_checkpoint=False, is_SCL=False,
+                 use_checkpoint=False, is_SPT=False, is_LSA=False, is_Coord=False,
                  **kwargs):
         super().__init__()
            

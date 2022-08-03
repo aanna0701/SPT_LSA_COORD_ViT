@@ -354,7 +354,7 @@ class T2T_module(nn.Module):
 class T2T_ViT(nn.Module):
     def __init__(self, img_size=224, in_chans=3, num_classes=1000, embed_dim=256, depth=12,
                  num_heads=4, mlp_ratio=2., qkv_bias=False, qk_scale=None, drop_rate=0., attn_drop_rate=0.,
-                 drop_path_rate=0., norm_layer=nn.LayerNorm, token_dim=64, is_SCL=False):
+                 drop_path_rate=0., norm_layer=nn.LayerNorm, token_dim=64, is_SPT=False, is_LSA=False, is_Coord=False):
         super().__init__()
         self.num_classes = num_classes
         self.embed_dim = embed_dim  
