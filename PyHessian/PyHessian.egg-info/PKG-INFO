@@ -1,0 +1,13 @@
+Metadata-Version: 2.1
+Name: PyHessian
+Version: 0.0.1
+Summary: Pytorch library for second-order based analysis and training of Neural Networks
+Home-page: https://github.com/amirgholami/PyHessian
+Author: Zhewei Yao, Amir Gholami
+Author-email: zheweiy@berkeley.edu, amirgh@berkeley.edu
+License: MIT
+Platform: UNKNOWN
+License-File: LICENSE
+
+UNKNOWN
+

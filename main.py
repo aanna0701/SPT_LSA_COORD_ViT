@@ -20,6 +20,7 @@ from utils.training_functions import accuracy
 import argparse
 from utils.scheduler import build_scheduler
 from utils.dataloader import datainfo, dataload
+from utils.hist import make_hist
 from models.create_model import create_model
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
@@ -334,9 +335,14 @@ def main(args):
     """
         
     # print(model)
+    hist_max_hessian = None
     
     for epoch in tqdm(range(args.epochs)):
-        lr = train(train_loader, model, criterion, optimizer, epoch, scheduler, args)
+        lr, top_eigenvalues = train(train_loader, model, criterion, optimizer, epoch, scheduler, args)
+        
+        hist_max_hessian = make_hist(top_eigenvalues, hist_max_hessian)
+        print(f'HIST MAX HEESIAN {hist_max_hessian}')
+        
         acc1 = validate(val_loader, model, criterion, lr, args, epoch=epoch)
         torch.save({
             'model_state_dict': model.state_dict(),
@@ -378,7 +384,7 @@ def train(train_loader, model, criterion, optimizer, epoch, scheduler,  args):
     model.train()
     loss_val, acc1_val = 0, 0
     n = 0
-        
+    top_eigenvalues = list()
     
     for i, (images, target) in enumerate(train_loader):
         if (not args.no_cuda) and torch.cuda.is_available():
@@ -391,7 +397,7 @@ def train(train_loader, model, criterion, optimizer, epoch, scheduler,  args):
             if r < args.mix_prob:
                 slicing_idx, y_a, y_b, lam, sliced = cutmix_data(images, target, args)
                 images[:, :, slicing_idx[0]:slicing_idx[2], slicing_idx[1]:slicing_idx[3]] = sliced
-                target = lam * y_a + (1-lam) * y_b
+            
                 output = model(images)
                 
                 loss =  mixup_criterion(criterion, output, y_a, y_b, lam)
@@ -408,7 +414,6 @@ def train(train_loader, model, criterion, optimizer, epoch, scheduler,  args):
             if r < args.mix_prob:
                 images, y_a, y_b, lam = mixup_data(images, target, args)
                 output = model(images)
-                target = lam * y_a + (1-lam) * y_b
                 
                 loss =  mixup_criterion(criterion, output, y_a, y_b, lam)
                 
@@ -439,8 +444,6 @@ def train(train_loader, model, criterion, optimizer, epoch, scheduler,  args):
                     
                     loss = mixup_criterion(criterion, output, y_a, y_b, lam)
                     
-                target = lam * y_a + (1-lam) * y_b
-                    
             else:
                 output = model(images)
                 
@@ -458,15 +461,7 @@ def train(train_loader, model, criterion, optimizer, epoch, scheduler,  args):
         loss_val += float(loss.item() * images.size(0))
         acc1_val += float(acc1[0] * images.size(0))   
 
-        if args.hessian:
-            model.eval()
-            # create the hessian computation module
-            hessian_comp = hessian(model, criterion, data=(images.clone(), target.clone()), cuda=True)
-            # Now let's compute the top eigenvalue. This only takes a few seconds.
-            top_eigenvalues, top_eigenvector = hessian_comp.eigenvalues()
-            print("The top Hessian eigenvalue of this model is %.4f"%top_eigenvalues[-1])
-            model.train()
-
+        
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -477,13 +472,21 @@ def train(train_loader, model, criterion, optimizer, epoch, scheduler,  args):
             avg_loss, avg_acc1 = (loss_val / n), (acc1_val / n)
             progress_bar(i, len(train_loader),f'[Epoch {epoch+1}/{args.epochs}][T][{i}]   Loss: {avg_loss:.4e}   Top-1: {avg_acc1:6.2f}   LR: {lr:.7f}'+' '*10)
         
+        if args.hessian:
+            # create the hessian computation module
+            hessian_comp = hessian(model)
+            # Now let's compute the top eigenvalue. This only takes a few seconds.
+            top_eigenvalue, _ = hessian_comp.eigenvalues()
+            top_eigenvalues.append(round(top_eigenvalue[-1]))
+            print(f"The top Hessian eigenvalue of this model is {top_eigenvalues}")
+            model.train()
         
     logger_dict.update(keys[0], avg_loss)
     logger_dict.update(keys[1], avg_acc1)
     writer.add_scalar("Loss/train", avg_loss, epoch)
     writer.add_scalar("Acc/train", avg_acc1, epoch)
 
-    return lr
+    return lr, top_eigenvalues
 
 def validate(val_loader, model, criterion, lr, args, epoch=None):
     global mae
