@@ -30,10 +30,12 @@ from PyHessian.pyhessian import hessian
 warnings.filterwarnings("ignore", category=Warning)
 
 best_acc1 = -987654321
-MODELS = ['vit', 'swin_t','swin_s','swin_b','swin_l', 'pit', 
-          'cait_xxs24', 'cait_xs24', 'cait_s24', 'cait_xxs36', 't2t', 'effiv2', 'res110', 'effib0' 
-          'regnetX_400m', 'regnetY_4G', 'regnetY_8G', 'effiv2_m', 'regnetX_200m', 'regnetY_400m', 'regnetY_200m',
-          'coatnet_0', 'coatnet_1', 'coatnet_2', 'coatnet_3']
+MODELS = [
+            'vit', 'swin_t','swin_s','swin_b','swin_l', 'pit', 
+            'cait_xxs24', 'cait_xs24', 'cait_s24', 'cait_xxs36', 't2t', 'effiv2', 'res110', 'effib0' 
+            'regnetX_400m', 'regnetY_4G', 'regnetY_8G', 'effiv2_m', 'regnetX_200m', 'regnetY_400m', 'regnetY_200m',
+            'coatnet_0', 'coatnet_1', 'coatnet_2', 'coatnet_3'
+        ]
 
 
 
@@ -43,7 +45,7 @@ def init_parser():
     # Data args
     parser.add_argument('--data_path', default='./dataset', type=str, help='dataset path')
     
-    parser.add_argument('--dataset', default='CIFAR10', choices=['CIFAR10', 'CIFAR100', 'T-IMNET', 'SVHN'], type=str, help='Image Net dataset path')
+    parser.add_argument('--dataset', default='CIFAR100', choices=['CIFAR10', 'CIFAR100', 'T-IMNET', 'SVHN'], type=str, help='Image Net dataset path')
 
     parser.add_argument('-j', '--workers', default=4, type=int, metavar='N', help='number of data loading workers (default: 4)')
 
@@ -54,7 +56,7 @@ def init_parser():
     
     parser.add_argument('--warmup', default=10, type=int, metavar='N', help='number of warmup epochs')
     
-    parser.add_argument('-b', '--batch_size', default=64, type=int, metavar='N', help='mini-batch size (default: 128)', dest='batch_size')
+    parser.add_argument('-b', '--batch_size', default=128, type=int, metavar='N', help='mini-batch size (default: 128)', dest='batch_size')
     
     parser.add_argument('--lr', default=0.003, type=float, help='initial learning rate')
     
@@ -340,8 +342,8 @@ def main(args):
     for epoch in tqdm(range(args.epochs)):
         lr, top_eigenvalues = train(train_loader, model, criterion, optimizer, epoch, scheduler, args)
         
-        hist_max_hessian = make_hist(top_eigenvalues, hist_max_hessian)
-        print(f'HIST MAX HEESIAN {hist_max_hessian}')
+        # hist_max_hessian = make_hist(top_eigenvalues, hist_max_hessian)
+        # print(f'HIST MAX HEESIAN {hist_max_hessian}')
         
         acc1 = validate(val_loader, model, criterion, lr, args, epoch=epoch)
         torch.save({

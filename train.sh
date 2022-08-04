@@ -1,7 +1,5 @@
 for s in 0 1 2
-do
-#	python main.py --model vit_s --batch_size 512 --lr 0.001 --epoch 75 --is_MAE --seed ${s} --gpu 0 --dataset CIFAR100 --data_path ../dataset
-	python main.py --model coatnet_0 --is_SCL --lr 0.001 --seed ${s} --gpu 0 --dataset CIFAR100 --data_path ../dataset
-#	python main.py --model coatnet3_0 --lr 0.001 --seed ${s} --gpu 0 --dataset CIFAR100 --is_LSA --is_SPT --is_Coord --data_path ../dataset
-	# python main.py --model egnet_400mf --lr 0.001 --seed ${s} --gpu 0 --dataset CIFAR100 --data_path ../datase	
-done
+# python main.py --disable_aug --disable_reg --is_SCL --gpu 0 --seed ${s}
+# python main.py --model swin_t --lr 0.001 --disable_aug --disable_reg --is_SCL --gpu 1 --seed ${s}
+# python main.py --disable_aug --disable_reg --gpu 2 --seed ${s}
+python main.py --model swin_t --lr 0.001 --disable_aug --disable_reg --gpu 0 --seed ${s}

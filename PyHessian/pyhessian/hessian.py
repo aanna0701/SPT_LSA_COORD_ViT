@@ -60,11 +60,14 @@ class hessian():
             # if we only compute the Hessian information for a single batch data, we can re-use the gradients.
             outputs = self.model(self.inputs)
             loss = self.criterion(outputs, self.targets)
-            loss.backward(create_graph=True)
-
+            
         else:
-            pass
-
+            
+            images, y_a, y_b, lam = mixup_data(self.inputs, self.targets, args)
+            output = model(images)
+            loss = mixup_criterion(criterion, output, y_a, y_b, lam)
+        
+        loss.backward(create_graph=True)
         # this step is used to extract the parameters from the model
         params, gradsH = get_params_grad(self.model)
         self.params = params
@@ -100,7 +103,7 @@ class hessian():
         eigenvalue = group_product(THv, v).cpu().item()
         return eigenvalue, THv
 
-    def eigenvalues(self, maxIter=100, tol=1e-3, top_n=1):
+    def eigenvalues(self, maxIter=20, tol=1e-3, top_n=1):
         """
         compute the top_n eigenvalues using power iteration method
         maxIter: maximum iterations used to compute each single eigenvalue
