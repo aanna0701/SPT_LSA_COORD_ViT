@@ -18,6 +18,23 @@ def create_model(img_size, n_classes, args):
             model = ViT(img_size=img_size, patch_size = patch_size, num_classes=n_classes, dim=192, 
                         mlp_dim_ratio=2, depth=9, heads=12, dim_head=192//12,
                         stochastic_depth=0.1, is_SCL=args.is_SCL)
+            if args.is_SPT:
+                from .vit_SPT import ViT_SPT
+                model = ViT_SPT(img_size=img_size, patch_size = patch_size, num_classes=n_classes, dim=192, 
+                        mlp_dim_ratio=2, depth=9, heads=12, dim_head=192//12,
+                        stochastic_depth=0.1)
+            elif args.is_LSA:
+                from .vit_LSA import ViT_LSA
+                model = ViT_LSA(img_size=img_size, patch_size = patch_size, num_classes=n_classes, dim=192, 
+                        mlp_dim_ratio=2, depth=9, heads=12, dim_head=192//12,
+                        stochastic_depth=0.1)
+            elif args.is_Coord:
+                from .vit_Coord import ViT_Coord
+                model = ViT_Coord(img_size=img_size, patch_size = patch_size, num_classes=n_classes, dim=192, 
+                        mlp_dim_ratio=2, depth=9, heads=12, dim_head=192//12,
+                        stochastic_depth=0.1)
+
+
         else:
             model = ViT(img_size=224, patch_size = 16,
                           num_classes=1000, dim=192, 
@@ -61,6 +78,22 @@ def create_model(img_size, n_classes, args):
             model = SwinTransformer(img_size=img_size, window_size=window_size, drop_path_rate=0.1, embed_dim=embed_dim,
                                     patch_size=patch_size, mlp_ratio=mlp_ratio, depths=depths, num_heads=num_heads, num_classes=n_classes, 
                                     is_SCL=args.is_SCL)
+
+            if args.is_SPT:
+                from .swin_SPT import SwinTransformer_SPT
+                model = SwinTransformer_SPT(img_size=img_size, window_size=window_size, drop_path_rate=0.1, embed_dim=embed_dim,
+                                    patch_size=patch_size, mlp_ratio=mlp_ratio, depths=depths, num_heads=num_heads, num_classes=n_classes)
+            elif args.is_LSA:
+                from .swin_LSA import SwinTransformer_LSA
+                model = SwinTransformer_LSA(img_size=img_size, window_size=window_size, drop_path_rate=0.1, embed_dim=embed_dim,
+                                    patch_size=patch_size, mlp_ratio=mlp_ratio, depths=depths, num_heads=num_heads, num_classes=n_classes)
+
+            elif args.is_Coord:
+                from .swin_Coord import SwinTransformer_Coord
+                model = SwinTransformer_Coord(img_size=img_size, window_size=window_size, drop_path_rate=0.1, embed_dim=embed_dim,
+                                    patch_size=patch_size, mlp_ratio=mlp_ratio, depths=depths, num_heads=num_heads, num_classes=n_classes)
+
+
         else:
             model = SwinTransformer(is_SCL=args.is_SCL)
         
@@ -78,6 +111,9 @@ def create_model(img_size, n_classes, args):
         model = SwinTransformer(img_size=img_size, window_size=window_size, drop_path_rate=0.1, embed_dim=embed_dim,
                                 patch_size=patch_size, mlp_ratio=mlp_ratio, depths=depths, num_heads=num_heads, num_classes=n_classes, 
                                 is_SCL=args.is_SCL)
+
+
+
         
     elif args.model =='regnetY_400m':
         model = RegNetY_400MF(n_classes)

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import models.layers as layers
+import models_.layers as layers
 
 
 class GAPBlock(nn.Module):

@@ -2,18 +2,18 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-import models.layers as layers
-import models.resnet_dnn_block as resnet_dnn
-import models.resnet_mcdo_block as resnet_mcdo
-import models.preresnet_dnn_block as preresnet_dnn
-import models.preresnet_mcdo_block as preresnet_mcdo
-import models.classifier_block as classifier
+import models_.layers as layers
+import models_.resnet_dnn_block as resnet_dnn
+import models_.resnet_mcdo_block as resnet_mcdo
+import models_.preresnet_dnn_block as preresnet_dnn
+import models_.preresnet_mcdo_block as preresnet_mcdo
+import models_.classifier_block as classifier
 
 from functools import partial
 from itertools import cycle
 from einops import rearrange
-from models.layers import conv1x1, DropPath
-from models.attentions import Attention2d
+from models_.layers import conv1x1, DropPath
+from models_.attentions import Attention2d
 from .SPT import PatchShifting, ShiftedPatchTokenization
 from .Coord import CoordConv
 

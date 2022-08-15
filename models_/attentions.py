@@ -7,7 +7,7 @@ import torch
 from torch import nn, einsum
 
 from einops import rearrange
-from models.layers import DropPath
+from models_.layers import DropPath
 
 from .Coord import CoordConv
 

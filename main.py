@@ -21,7 +21,7 @@ import argparse
 from utils.scheduler import build_scheduler
 from utils.dataloader import datainfo, dataload
 from utils.hist import make_hist
-from models.create_model import create_model
+from models_.create_model import create_model
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 import warnings
@@ -34,7 +34,7 @@ MODELS = [
             'vit', 'swin_t','swin_s','swin_b','swin_l', 'pit', 
             'cait_xxs24', 'cait_xs24', 'cait_s24', 'cait_xxs36', 't2t', 'effiv2', 'res110', 'effib0' 
             'regnetX_400m', 'regnetY_4G', 'regnetY_8G', 'effiv2_m', 'regnetX_200m', 'regnetY_400m', 'regnetY_200m',
-            'coatnet_0', 'coatnet_1', 'coatnet_2', 'coatnet_3'
+            'coatnet_0', 'coatnet_1', 'coatnet_2', 'coatnet_3', 'res110'
         ]
 
 
@@ -120,6 +120,9 @@ def init_parser():
     # Apply Propoed Method
     
     parser.add_argument('--is_SCL', action='store_true', help='Apply all SPT, LSA, and Coord')
+    parser.add_argument('--is_SPT', action='store_true', help='Apply all SPT, LSA, and Coord')
+    parser.add_argument('--is_LSA', action='store_true', help='Apply all SPT, LSA, and Coord')
+    parser.add_argument('--is_Coord', action='store_true', help='Apply all SPT, LSA, and Coord')
         
     parser.add_argument('--pretrained_path', default='', type=str,help='pretrained path')
 
@@ -560,11 +563,17 @@ if __name__ == '__main__':
     
     model_name = args.model
 
-    if not args.is_SCL:
+    if not args.is_SPT:
         model_name += "-Base"
         
-    elif args.is_SCL:
-        model_name += "-SCL"
+    elif args.is_SPT:
+        model_name += "-SPT"
+
+    elif args.is_LSA:
+        model_name += "-LSA"
+    
+    elif args.is_Coord:
+        model_name += "-Coord"
 
     model_name += f"-{args.tag}-{args.dataset}-LR[{args.lr}]-Seed{args.seed}"
     
