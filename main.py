@@ -25,16 +25,14 @@ from models_.create_model import create_model
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 import warnings
-from PyHessian.pyhessian import hessian
 
 warnings.filterwarnings("ignore", category=Warning)
 
 best_acc1 = -987654321
 MODELS = [
             'vit', 'swin_t','swin_s','swin_b','swin_l', 'pit', 
-            'cait_xxs24', 'cait_xs24', 'cait_s24', 'cait_xxs36', 't2t', 'effiv2', 'res110', 'effib0' 
-            'regnetX_400m', 'regnetY_4G', 'regnetY_8G', 'effiv2_m', 'regnetX_200m', 'regnetY_400m', 'regnetY_200m',
-            'coatnet_0', 'coatnet_1', 'coatnet_2', 'coatnet_3', 'res110'
+            'cait_xxs24', 'cait_xs24', 'cait_s24', 'cait_xxs36', 't2t',
+            'coatnet_0', 'coatnet_1', 'coatnet_2', 'coatnet_3'
         ]
 
 
@@ -114,8 +112,6 @@ def init_parser():
     parser.add_argument('--re_sh', default=0.4, type=float, help='max erasing area')
     
     parser.add_argument('--re_r1', default=0.3, type=float, help='aspect of erasing area')
-    
-    parser.add_argument('--hessian', action='store_true', help='calculate max hessain eigenvalues')
     
     # Apply Propoed Method
     
@@ -279,10 +275,6 @@ def main(args):
     
     print()
     print("Beginning training")
-    
-    if args.hessian:
-        print("Calculate Max Hessain Eigenvalues")
-        
     print()
 
     if not args.pretrained_path == '':
@@ -338,15 +330,9 @@ def main(args):
             nn.init.constant_(m.bias, 0)
             nn.init.constant_(m.weight, 1.0)
     """
-        
-    # print(model)
-    hist_max_hessian = None
     
     for epoch in tqdm(range(args.epochs)):
         lr, top_eigenvalues = train(train_loader, model, criterion, optimizer, epoch, scheduler, args)
-        
-        # hist_max_hessian = make_hist(top_eigenvalues, hist_max_hessian)
-        # print(f'HIST MAX HEESIAN {hist_max_hessian}')
         
         acc1 = validate(val_loader, model, criterion, lr, args, epoch=epoch)
         torch.save({
@@ -473,20 +459,6 @@ def train(train_loader, model, criterion, optimizer, epoch, scheduler,  args):
         loss_val += float(loss.item() * images.size(0))
         acc1_val += float(acc1[0] * images.size(0))   
 
-        if args.hessian:
-            if not hess_mix:
-                # create the hessian computation module
-                hessian_comp = hessian(model, (images, target), criterion, None)
-            else:
-                target = lam * y_a + (1-lam) * y_b
-                hessian_comp = hessian(model, (images, target), criterion, mixup_criterion, None)
-                
-            # Now let's compute the top eigenvalue. This only takes a few seconds.
-            top_eigenvalue, _ = hessian_comp.eigenvalues()
-            top_eigenvalues.append(round(top_eigenvalue[-1]))
-            print(f"The top Hessian eigenvalue of this model is {top_eigenvalues}")
-            model.train()
-        
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
